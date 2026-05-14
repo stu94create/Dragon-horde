@@ -3,7 +3,7 @@
 // PWAs on iOS keep working when Safari ITP would otherwise dump caches.
 //
 // Bump CACHE_VERSION whenever any precached file changes.
-const CACHE_VERSION = 'hoard-v4';
+const CACHE_VERSION = 'hoard-v5';
 
 const PRECACHE = [
   './',
@@ -48,22 +48,19 @@ self.addEventListener('fetch', (event) => {
   // Only handle same-origin requests; let the network handle Google Fonts etc.
   if (url.origin !== self.location.origin) return;
 
-  // For navigation requests, prefer cache so the app still opens offline,
-  // but try the network in the background to pick up updates.
+  // For navigation requests, try the network first so app updates land
+  // immediately. Fall back to cache only when offline.
   if (req.mode === 'navigate') {
     event.respondWith(
-      caches.match('./index.html').then((cached) => {
-        const fetchPromise = fetch(req)
-          .then((res) => {
-            if (res && res.ok) {
-              const copy = res.clone();
-              caches.open(CACHE_VERSION).then((c) => c.put('./index.html', copy));
-            }
-            return res;
-          })
-          .catch(() => cached);
-        return cached || fetchPromise;
-      })
+      fetch(req)
+        .then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE_VERSION).then((c) => c.put('./index.html', copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match('./index.html'))
     );
     return;
   }
