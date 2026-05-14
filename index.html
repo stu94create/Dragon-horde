@@ -304,6 +304,14 @@ text-transform: uppercase;
 letter-spacing: 0.08em;
 padding: 6px 10px;
 }
+.filter-count {
+display: none;
+color: var(--bone-dim);
+font-size: 0.82rem;
+margin: 0 0 8px;
+}
+.entries-filter.has-filter ~ .filter-count,
+.filter-count.show { display: block; }
 
 /* Reckoning charts */
 .reckoning-chart {
@@ -401,6 +409,37 @@ min-width: 36px;
 text-align: right;
 }
 
+/* Collapsible Settings sections */
+details.settings-group {
+border-top: 1px solid var(--border-soft);
+margin: 0 -4px;
+}
+details.settings-group:last-of-type {
+border-bottom: 1px solid var(--border-soft);
+margin-bottom: 16px;
+}
+details.settings-group > summary {
+list-style: none;
+cursor: pointer;
+padding: 14px 8px;
+font-family: 'Cinzel', serif;
+font-size: 0.9rem;
+letter-spacing: 0.1em;
+text-transform: uppercase;
+color: var(--gold);
+display: flex;
+align-items: center;
+justify-content: space-between;
+}
+details.settings-group > summary::-webkit-details-marker { display: none; }
+details.settings-group > summary::after {
+content: '▾';
+color: var(--bone-dim);
+transition: transform 0.18s ease;
+}
+details.settings-group[open] > summary::after { transform: rotate(180deg); }
+details.settings-group > .setting-group { padding: 0 8px 12px; }
+
 /* Achievements list */
 .achievement {
 display: grid;
@@ -471,6 +510,10 @@ gap: 10px;
 font-style: italic;
 color: var(--bone-muted);
 padding: 8px 0;
+}
+.recurring-row--paused .recurring-row-name,
+.recurring-row--paused .recurring-row-meta {
+opacity: 0.55;
 }
 
 /* PIN overlay */
@@ -879,6 +922,7 @@ user-select: none;
       <option value="loss">Thefts only</option>
     </select>
   </div>
+  <p class="filter-count" id="filterCount" role="status" aria-live="polite"></p>
   <ul class="entries" id="entriesList" aria-label="Recent entries, newest first"></ul>
 
   <div class="footer-actions">
@@ -948,110 +992,121 @@ user-select: none;
       <button class="btn-close" type="button" id="settingsClose" aria-label="Close settings">Close</button>
     </div>
 
-<div class="setting-group">
-  <label class="field-label" for="settingVerbosity">Dragon's Voice</label>
-  <select id="settingVerbosity">
-    <option value="always">Speaks on every action (full menace)</option>
-    <option value="milestones">Only on milestones</option>
-    <option value="quiet">Quiet — opening and reckoning only</option>
-  </select>
-</div>
-
-<div class="setting-group">
-  <label class="field-label" for="settingDragonName">Name your dragon</label>
-  <input type="text" id="settingDragonName" maxlength="40" placeholder="The Dragon" autocomplete="off">
-</div>
-
-<div class="setting-group">
-  <label class="field-label" for="settingMusic">Music</label>
-  <select id="settingMusic">
-    <option value="on">On — dread plays while the hoard is open</option>
-    <option value="off">Off — silence</option>
-  </select>
-</div>
-
-<div class="setting-group">
-  <label class="field-label" for="settingMusicVolume">Music volume</label>
-  <div class="range-row">
-    <input type="range" id="settingMusicVolume" min="0" max="100" step="1" aria-label="Music volume">
-    <span class="range-value" id="musicVolumeReadout">60%</span>
+<details class="settings-group" open>
+  <summary>Voice</summary>
+  <div class="setting-group">
+    <label class="field-label" for="settingVerbosity">Dragon's Voice</label>
+    <select id="settingVerbosity">
+      <option value="always">Speaks on every action (full menace)</option>
+      <option value="milestones">Only on milestones</option>
+      <option value="quiet">Quiet — opening and reckoning only</option>
+    </select>
   </div>
-</div>
-
-<div class="setting-group">
-  <label class="field-label" for="settingSfx">Sound Effects</label>
-  <select id="settingSfx">
-    <option value="on">On — coin drops, hisses, roars</option>
-    <option value="off">Off — silent</option>
-  </select>
-</div>
-
-<div class="setting-group">
-  <label class="field-label" for="settingSfxVolume">Effects volume</label>
-  <div class="range-row">
-    <input type="range" id="settingSfxVolume" min="0" max="100" step="1" aria-label="Sound effects volume">
-    <span class="range-value" id="sfxVolumeReadout">70%</span>
+  <div class="setting-group">
+    <label class="field-label" for="settingDragonName">Name your dragon</label>
+    <input type="text" id="settingDragonName" maxlength="40" placeholder="The Dragon" autocomplete="off">
   </div>
-</div>
+</details>
 
-<div class="setting-group">
-  <h3 class="section-h" style="margin-bottom: 8px;">Monthly limits</h3>
-  <p class="about-text" style="margin-bottom: 12px;">
-    Set a monthly budget for each loss category. The dragon warns you when a thief approaches their limit.
-  </p>
-  <div id="budgetEditor"></div>
-</div>
-
-<div class="setting-group">
-  <h3 class="section-h" style="margin-bottom: 8px;">The Scrolls</h3>
-  <p class="about-text" style="margin-bottom: 12px;">
-    Save your hoard as a backup file, or restore from one. Use this before clearing browser data, switching devices, or if you have not opened the app in a while.
-  </p>
-  <div class="form-actions">
-    <button type="button" class="btn" id="btnExport">Export backup</button>
-    <label class="btn" for="importFile" style="cursor:pointer;">Import backup</label>
-    <input type="file" id="importFile" accept="application/json,.json" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
+<details class="settings-group">
+  <summary>Sound</summary>
+  <div class="setting-group">
+    <label class="field-label" for="settingMusic">Music</label>
+    <select id="settingMusic">
+      <option value="on">On — dread plays while the hoard is open</option>
+      <option value="off">Off — silence</option>
+    </select>
   </div>
-</div>
-
-<div class="setting-group">
-  <h3 class="section-h" style="margin-bottom: 8px;">Recurring</h3>
-  <p class="about-text" style="margin-bottom: 12px;">
-    Tributes that arrive on a schedule. Salaries, rent, subscriptions. The dragon logs them for you when each cycle turns.
-  </p>
-  <div id="recurringList"></div>
-  <div class="form-actions" style="margin-top:10px;">
-    <button type="button" class="btn" id="btnAddRecurring">Add recurring</button>
+  <div class="setting-group">
+    <label class="field-label" for="settingMusicVolume">Music volume</label>
+    <div class="range-row">
+      <input type="range" id="settingMusicVolume" min="0" max="100" step="1" aria-label="Music volume">
+      <span class="range-value" id="musicVolumeReadout">60%</span>
+    </div>
   </div>
-</div>
-
-<div class="setting-group">
-  <h3 class="section-h" style="margin-bottom: 8px;">Deeds of the Hoard</h3>
-  <p class="about-text" style="margin-bottom: 12px;">
-    Achievements the dragon has carved into the cave wall.
-  </p>
-  <div class="form-actions">
-    <button type="button" class="btn" id="btnAchievements">View deeds</button>
+  <div class="setting-group">
+    <label class="field-label" for="settingSfx">Sound Effects</label>
+    <select id="settingSfx">
+      <option value="on">On — coin drops, hisses, roars</option>
+      <option value="off">Off — silent</option>
+    </select>
   </div>
-</div>
-
-<div class="setting-group">
-  <h3 class="section-h" style="margin-bottom: 8px;">The Vault Seal</h3>
-  <p class="about-text" style="margin-bottom: 12px;">
-    A four-digit secret. Required to open the hoard. The dragon forgets nothing.
-  </p>
-  <div class="form-actions">
-    <button type="button" class="btn" id="btnSetPin">Set PIN</button>
-    <button type="button" class="btn" id="btnRemovePin" style="display:none;">Remove PIN</button>
+  <div class="setting-group">
+    <label class="field-label" for="settingSfxVolume">Effects volume</label>
+    <div class="range-row">
+      <input type="range" id="settingSfxVolume" min="0" max="100" step="1" aria-label="Sound effects volume">
+      <span class="range-value" id="sfxVolumeReadout">70%</span>
+    </div>
   </div>
-</div>
+</details>
 
-<div class="setting-group">
-  <h3 class="section-h" style="margin-bottom: 8px;">About</h3>
-  <p class="about-text">
-    The Dragon's Hoard is a budgeting ledger watched over by a slow, possessive dragon. All data is stored locally on this device. No accounts. No servers. For best durability on iPhone, add the app to your Home Screen.
-  </p>
-</div>
+<details class="settings-group">
+  <summary>Money</summary>
+  <div class="setting-group">
+    <h3 class="section-h" style="margin-bottom: 8px;">Monthly limits</h3>
+    <p class="about-text" style="margin-bottom: 12px;">
+      Set a monthly budget for each loss category. The dragon warns you when a thief approaches their limit.
+    </p>
+    <div id="budgetEditor"></div>
+  </div>
+  <div class="setting-group">
+    <h3 class="section-h" style="margin-bottom: 8px;">Recurring</h3>
+    <p class="about-text" style="margin-bottom: 12px;">
+      Tributes that arrive on a schedule. Salaries, rent, subscriptions. The dragon logs them for you when each cycle turns.
+    </p>
+    <div id="recurringList"></div>
+    <div class="form-actions" style="margin-top:10px;">
+      <button type="button" class="btn" id="btnAddRecurring">Add recurring</button>
+    </div>
+  </div>
+</details>
+
+<details class="settings-group">
+  <summary>Records</summary>
+  <div class="setting-group">
+    <h3 class="section-h" style="margin-bottom: 8px;">Deeds of the Hoard</h3>
+    <p class="about-text" style="margin-bottom: 12px;">
+      Achievements the dragon has carved into the cave wall.
+    </p>
+    <div class="form-actions">
+      <button type="button" class="btn" id="btnAchievements">View deeds</button>
+    </div>
+  </div>
+  <div class="setting-group">
+    <h3 class="section-h" style="margin-bottom: 8px;">The Scrolls</h3>
+    <p class="about-text" style="margin-bottom: 12px;">
+      Save your hoard as a backup file, or restore from one. Use this before clearing browser data, switching devices, or if you have not opened the app in a while.
+    </p>
+    <div class="form-actions">
+      <button type="button" class="btn" id="btnExport">Export backup</button>
+      <label class="btn" for="importFile" style="cursor:pointer;">Import backup</label>
+      <input type="file" id="importFile" accept="application/json,.json" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
+    </div>
+  </div>
+</details>
+
+<details class="settings-group">
+  <summary>The Vault</summary>
+  <div class="setting-group">
+    <h3 class="section-h" style="margin-bottom: 8px;">The Vault Seal</h3>
+    <p class="about-text" style="margin-bottom: 12px;">
+      A four-digit secret. Required to open the hoard. A local lock, not strong security — anyone with the device can erase data outside the app. The dragon forgets nothing all the same.
+    </p>
+    <div class="form-actions">
+      <button type="button" class="btn" id="btnSetPin">Set PIN</button>
+      <button type="button" class="btn" id="btnRemovePin" style="display:none;">Remove PIN</button>
+    </div>
+  </div>
+</details>
+
+<details class="settings-group">
+  <summary>About</summary>
+  <div class="setting-group">
+    <p class="about-text">
+      The Dragon's Hoard is a budgeting ledger watched over by a slow, possessive dragon. All data is stored locally on this device. No accounts. No servers. For best durability on iPhone, add the app to your Home Screen.
+    </p>
+  </div>
+</details>
 
 <div class="danger-zone">
   <h3 class="danger-h">The Forgetting</h3>
@@ -1334,7 +1389,7 @@ const IDB_KEY = 'current';
 
 function defaultState() {
   return {
-    version: 2,
+    version: 3,
     entries: [],
     recurring: [],
     budgets: {},
@@ -1343,7 +1398,7 @@ function defaultState() {
     dragonName: '',
     settings: {
       dragonVerbosity: 'always',
-      reckoningMusic: 'on',
+      music: 'on',
       musicVolume: 0.6,
       soundEffects: 'on',
       sfxVolume: 0.7,
@@ -1356,17 +1411,27 @@ function defaultState() {
 function normalizeState(p) {
   if (!p || typeof p !== 'object') return defaultState();
   const s = p.settings || {};
+  const flags = (p.flags && typeof p.flags === 'object') ? { ...p.flags } : {};
+  // Migrate the old standalone lastMilestone localStorage key into state.flags
+  // so it gets exported, mirrored to IDB, and reset by Erase the Hoard.
+  if (flags.lastMilestone == null) {
+    try {
+      const legacy = Number(localStorage.getItem('dragonsHoard:lastMilestone'));
+      if (Number.isFinite(legacy) && legacy > 0) flags.lastMilestone = legacy;
+    } catch {}
+  }
   return {
-    version: 2,
+    version: 3,
     entries: Array.isArray(p.entries) ? p.entries : [],
     recurring: Array.isArray(p.recurring) ? p.recurring : [],
     budgets: (p.budgets && typeof p.budgets === 'object') ? p.budgets : {},
     achievements: (p.achievements && typeof p.achievements === 'object') ? p.achievements : {},
-    flags: (p.flags && typeof p.flags === 'object') ? p.flags : {},
+    flags,
     dragonName: typeof p.dragonName === 'string' ? p.dragonName : '',
     settings: {
       dragonVerbosity: s.dragonVerbosity ?? 'always',
-      reckoningMusic: s.reckoningMusic ?? 'on',
+      // music was named reckoningMusic in v2; carry the old field forward.
+      music: s.music ?? s.reckoningMusic ?? 'on',
       musicVolume: typeof s.musicVolume === 'number' ? s.musicVolume : 0.6,
       soundEffects: s.soundEffects ?? 'on',
       sfxVolume: typeof s.sfxVolume === 'number' ? s.sfxVolume : 0.7,
@@ -1429,20 +1494,45 @@ function loadStateSync() {
 
 let state = loadStateSync() || defaultState();
 
+// Flip once the user has touched anything mutable so the IDB recovery
+// below doesn't clobber early input with a stale snapshot.
+let userTouchedState = false;
+function markUserTouched() {
+  userTouchedState = true;
+  document.removeEventListener('input', markUserTouched, true);
+  document.removeEventListener('change', markUserTouched, true);
+  document.removeEventListener('click', onClickTouch, true);
+}
+function onClickTouch(e) {
+  // Treat clicks on any button or panel control as user mutation
+  if (e.target && e.target.closest('button, input, select, textarea')) {
+    markUserTouched();
+  }
+}
+document.addEventListener('input', markUserTouched, true);
+document.addEventListener('change', markUserTouched, true);
+document.addEventListener('click', onClickTouch, true);
+
 // If localStorage was empty/broken, restore from IndexedDB if we have a
 // backup there (this is the iOS-ITP recovery path).
 (async () => {
-  if (state.entries.length === 0) {
-    try {
-      const fromIdb = await idbGet();
-      if (fromIdb && Array.isArray(fromIdb.entries) && fromIdb.entries.length > 0) {
-        state = normalizeState(fromIdb);
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
-        render();
-        speakLine('I remember. The records were buried, but the dragon does not forget.');
-      }
-    } catch (e) { console.warn('IDB recovery failed', e); }
-  }
+  if (state.entries.length > 0) return;
+  try {
+    const fromIdb = await idbGet();
+    if (!fromIdb || !Array.isArray(fromIdb.entries) || fromIdb.entries.length === 0) return;
+    if (userTouchedState) {
+      // User already started using the empty app. Don't clobber their
+      // input with a recovery — they may have intentionally started
+      // fresh. Surface a one-line hint instead.
+      console.info('IDB recovery available but skipped: user has already interacted');
+      speakLine('Older records exist in the deep. Erase the hoard and reopen to restore them.');
+      return;
+    }
+    state = normalizeState(fromIdb);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+    render();
+    speakLine('I remember. The records were buried, but the dragon does not forget.');
+  } catch (e) { console.warn('IDB recovery failed', e); }
 })();
 
 let saveErrorAnnounced = false;
@@ -1488,6 +1578,14 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
+// Local-time YYYY-MM. Don't use new Date().toISOString().slice(0,7) — that
+// is UTC, and entry.date comes from <input type="date"> which is locale-naive,
+// so a 23:30 entry in a non-UTC zone ends up in the wrong UTC month.
+function currentYm() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
 function categoryName(type, id) {
   const cat = CATEGORIES[type]?.find(c => c.id === id);
   return cat ? cat.name : 'Unknown';
@@ -1514,13 +1612,14 @@ function highestMilestoneReached(hoard) {
   return MILESTONE_THRESHOLDS.filter(t => hoard >= t).pop() ?? null;
 }
 
-function lastSeenMilestoneKey() { return 'dragonsHoard:lastMilestone'; }
 function getLastSeenMilestone() {
-  const v = Number(localStorage.getItem(lastSeenMilestoneKey()));
+  const v = Number(state.flags && state.flags.lastMilestone);
   return Number.isFinite(v) ? v : 0;
 }
 function setLastSeenMilestone(v) {
-  try { localStorage.setItem(lastSeenMilestoneKey(), String(v)); } catch {}
+  state.flags = state.flags || {};
+  state.flags.lastMilestone = v;
+  saveState();
 }
 
 // Returns 'positive', 'negative', or null if no streak of three.
@@ -1562,7 +1661,7 @@ function checkMilestonesAndBudgets(type, amount, categoryId, catName) {
   // Budget warning (loss exceeded a configured limit this month)
   if (type === 'loss' && state.budgets[categoryId]) {
     const budget = state.budgets[categoryId];
-    const ym = new Date().toISOString().slice(0, 7);
+    const ym = currentYm();
     const spent = state.entries
       .filter(e => e.type === 'loss' && e.category === categoryId && e.date.startsWith(ym))
       .reduce((s, e) => s + e.amount, 0);
@@ -1747,12 +1846,18 @@ const ACHIEVEMENTS = [
     desc: 'Kept the records across a full year and one day.',
     check: () => {
       if (state.entries.length < 2) return false;
-      const dates = state.entries
-        .map(e => new Date(e.date + 'T00:00:00').getTime())
-        .filter(t => Number.isFinite(t));
-      if (dates.length < 2) return false;
-      const span = (Math.max(...dates) - Math.min(...dates)) / 86400000;
-      return span >= 366;
+      // Use a single-pass reduce instead of Math.max(...arr) — spread on a
+      // large array can exceed engine argument limits.
+      let min = Infinity, max = -Infinity, seen = 0;
+      for (const e of state.entries) {
+        const t = new Date(e.date + 'T00:00:00').getTime();
+        if (!Number.isFinite(t)) continue;
+        if (t < min) min = t;
+        if (t > max) max = t;
+        seen++;
+      }
+      if (seen < 2) return false;
+      return (max - min) / 86400000 >= 366;
     }
   },
   {
@@ -1764,7 +1869,6 @@ const ACHIEVEMENTS = [
 ];
 
 const achievementUnlockQueue = [];
-function getAchievementById(id) { return ACHIEVEMENTS.find(a => a.id === id); }
 
 function checkAchievements({ silent = false } = {}) {
   const today = todayISO();
@@ -1781,24 +1885,32 @@ function checkAchievements({ silent = false } = {}) {
   if (newlyEarned.length === 0) return;
   saveState();
   if (silent) return;
-  // Queue announcements so multiple at once don't stomp each other
-  newlyEarned.forEach(a => achievementUnlockQueue.push(a));
+  achievementUnlockQueue.push(newlyEarned);
   drainAchievementQueue();
 }
 
 let achievementAnnouncing = false;
 function drainAchievementQueue() {
   if (achievementAnnouncing) return;
-  const next = achievementUnlockQueue.shift();
-  if (!next) return;
+  const batch = achievementUnlockQueue.shift();
+  if (!batch || batch.length === 0) return;
   achievementAnnouncing = true;
   setTimeout(() => {
     playAchievementFanfare();
-    speakLine(pick(LINES.achievementEarned).replace('{name}', next.name));
+    let line;
+    if (batch.length === 1) {
+      line = pick(LINES.achievementEarned).replace('{name}', batch[0].name);
+    } else {
+      // Coalesce multiple at once into a single line instead of chaining
+      // four-second speeches per deed (e.g. on import).
+      const names = batch.map(a => `"${a.name}"`).join(', ');
+      line = `${batch.length} deeds carved at once: ${names}.`;
+    }
+    speakLine(line);
     setTimeout(() => {
       achievementAnnouncing = false;
       drainAchievementQueue();
-    }, 3800);
+    }, batch.length === 1 ? 3800 : 5200);
   }, 1200);
 }
 
@@ -1920,6 +2032,18 @@ function render() {
     li.textContent = 'No entries match the filter.';
     list.appendChild(li);
     return;
+  }
+
+  const countEl = document.getElementById('filterCount');
+  if (countEl) {
+    const filterActive = entryFilter.text.trim() !== '' || entryFilter.type !== 'all';
+    if (filterActive) {
+      countEl.textContent = `${filtered.length} of ${state.entries.length} entries shown.`;
+      countEl.classList.add('show');
+    } else {
+      countEl.textContent = '';
+      countEl.classList.remove('show');
+    }
   }
 
   filtered.slice(0, ENTRIES_VISIBLE_LIMIT).forEach(entry => {
@@ -2127,9 +2251,11 @@ document.getElementById('entryCancel2').addEventListener('click', () => closePan
 document.getElementById('btnAddGain').addEventListener('click', (e) => openEntryForm('gain', e.currentTarget));
 document.getElementById('btnAddLoss').addEventListener('click', (e) => openEntryForm('loss', e.currentTarget));
 
+let searchRenderId = null;
 document.getElementById('entrySearch').addEventListener('input', (e) => {
   entryFilter.text = e.target.value;
-  render();
+  if (searchRenderId) clearTimeout(searchRenderId);
+  searchRenderId = setTimeout(() => { searchRenderId = null; render(); }, 120);
 });
 document.getElementById('entryTypeFilter').addEventListener('change', (e) => {
   entryFilter.type = e.target.value;
@@ -2143,7 +2269,6 @@ reckoningAudio.loop = true;
 // valid user gesture — the gesture "expires" before the file finishes
 // loading. The service worker precaches this file, so preloading is free.
 reckoningAudio.preload = 'auto';
-reckoningAudio.crossOrigin = 'anonymous';
 
 // Web Audio routing: HTMLAudioElement.volume is read-only on iOS Safari,
 // but a GainNode in the audio graph isn't. Route the audio element through
@@ -2232,7 +2357,7 @@ function fadeMusicTo(target, durationMs) {
 }
 
 function playAmbient() {
-  if (state.settings.reckoningMusic !== 'on') return;
+  if (state.settings.music !== 'on') return;
   if (!reckoningAudio.paused) return;
   ensureAudioGraph();
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
@@ -2281,7 +2406,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     resumeOnVisible = !reckoningAudio.paused;
     if (resumeOnVisible) reckoningAudio.pause();
-  } else if (resumeOnVisible && state.settings.reckoningMusic === 'on') {
+  } else if (resumeOnVisible && state.settings.music === 'on') {
     resumeOnVisible = false;
     reckoningAudio.play().catch(() => {});
   }
@@ -2597,7 +2722,7 @@ function renderBudgetEditor() {
 
 function openSettings(openerEl) {
   document.getElementById('settingVerbosity').value = state.settings.dragonVerbosity;
-  document.getElementById('settingMusic').value = state.settings.reckoningMusic;
+  document.getElementById('settingMusic').value = state.settings.music;
   document.getElementById('settingSfx').value = state.settings.soundEffects;
   document.getElementById('settingDragonName').value = state.dragonName || '';
   const volPct = Math.round((state.settings.musicVolume ?? 0.6) * 100);
@@ -2628,7 +2753,7 @@ document.getElementById('settingVerbosity').addEventListener('change', (e) => {
 });
 
 document.getElementById('settingMusic').addEventListener('change', (e) => {
-  state.settings.reckoningMusic = e.target.value;
+  state.settings.music = e.target.value;
   saveState();
   if (e.target.value === 'on') playAmbient();
   else stopAmbient();
@@ -2670,6 +2795,9 @@ document.getElementById('btnClearData').addEventListener('click', () => {
     state.entries = [];
     state.flags = state.flags || {};
     state.flags.everCleared = true;
+    // Reset the milestone tracker so the dragon speaks for thresholds the
+    // user crosses again, instead of silently sitting on the old high.
+    state.flags.lastMilestone = 0;
     saveState();
     render();
     closePanel('settingsPanel');
@@ -2718,6 +2846,17 @@ function bytesFromB64(b64) {
   const out = new Uint8Array(s.length);
   for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
   return out;
+}
+
+// Cheap strength gauge: counts character classes and length. Returns
+// 'weak' | 'ok' | 'strong'. Not a substitute for zxcvbn but enough to
+// nudge users away from "1234" without shipping a library.
+function passwordStrength(p) {
+  if (!p) return 'weak';
+  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter(r => r.test(p)).length;
+  if (p.length >= 12 && classes >= 3) return 'strong';
+  if (p.length >= 8 && classes >= 2) return 'ok';
+  return 'weak';
 }
 
 async function deriveKey(password, saltBytes) {
@@ -2771,6 +2910,11 @@ async function exportHoard() {
     password = prompt('Choose a password for this backup. You will need it to import.');
     if (password == null) return;
     if (password.length < 4) { alert('Password too short. Use at least 4 characters.'); return; }
+    const strength = passwordStrength(password);
+    if (strength === 'weak') {
+      const ok = confirm('That password is weak (short or one character class). Continue anyway?');
+      if (!ok) return;
+    }
   }
 
   let payload;
@@ -2838,6 +2982,14 @@ async function importHoardFromFile(file) {
     : `Replace your current ${state.entries.length} entries with ${incoming.entries.length} from the backup? This cannot be undone.`;
   if (!confirm(msg)) return;
 
+  // Preserve the current PIN unless the backup actually carries one. A
+  // backup made before a PIN was set would otherwise silently unlock the
+  // device — an unintentional bypass path.
+  if (state.settings.pinHash && !incoming.settings.pinHash) {
+    incoming.settings.pinHash = state.settings.pinHash;
+    incoming.settings.pinSalt = state.settings.pinSalt;
+  }
+
   state = incoming;
   saveState();
   render();
@@ -2886,10 +3038,17 @@ document.getElementById('btnDeeds').addEventListener('click', (e) => openAchieve
 document.getElementById('achievementsClose').addEventListener('click', () => closePanel('achievementsPanel'));
 
 // ---------- Recurring entries ----------
+function daysInMonth(year, monthIndex0) {
+  return new Date(year, monthIndex0 + 1, 0).getDate();
+}
+// addMonthsToISO clamps the day to the last day of the target month so
+// "monthly from Jan 31" doesn't drift to "3 March" via Date overflow.
 function addMonthsToISO(iso, months) {
   const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(y, m - 1 + months, d);
-  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  const targetY = y + Math.floor((m - 1 + months) / 12);
+  const targetM0 = ((m - 1 + months) % 12 + 12) % 12;
+  const clampedD = Math.min(d, daysInMonth(targetY, targetM0));
+  return `${targetY}-${String(targetM0 + 1).padStart(2,'0')}-${String(clampedD).padStart(2,'0')}`;
 }
 function addDaysToISO(iso, days) {
   const [y, m, d] = iso.split('-').map(Number);
@@ -2903,12 +3062,22 @@ function advanceCadence(iso, cadence) {
 
 function runDueRecurring() {
   const today = todayISO();
+  // Refuse to retroactively log entries older than this — protects against
+  // floods if a user comes back after months away with a stale recurring.
+  const oldestAllowed = addDaysToISO(today, -90);
+  const MAX_CYCLES_PER_RUN = 12;
   let ranAny = false;
+  let skippedAny = false;
   const announces = [];
   (state.recurring || []).forEach(r => {
     if (!r.active) return;
-    let guard = 0;
-    while (r.nextDate && r.nextDate <= today && guard < 120) {
+    // Fast-forward past anything older than the cutoff without logging.
+    while (r.nextDate && r.nextDate < oldestAllowed) {
+      r.nextDate = advanceCadence(r.nextDate, r.cadence);
+      skippedAny = true;
+    }
+    let cycles = 0;
+    while (r.nextDate && r.nextDate <= today && cycles < MAX_CYCLES_PER_RUN) {
       state.entries.push({
         id: uid(),
         type: r.type,
@@ -2920,9 +3089,10 @@ function runDueRecurring() {
       announces.push({ catName: categoryName(r.type, r.category), amount: r.amount });
       r.nextDate = advanceCadence(r.nextDate, r.cadence);
       ranAny = true;
-      guard++;
+      cycles++;
     }
   });
+  if (skippedAny) saveState();
   if (ranAny) {
     saveState();
     render();
@@ -2951,17 +3121,30 @@ function renderRecurringInSettings() {
     const cadenceLabel = r.cadence === 'weekly' ? 'weekly' : 'monthly';
     const sign = r.type === 'gain' ? '+' : '−';
     const row = document.createElement('div');
-    row.className = 'recurring-row';
+    row.className = 'recurring-row' + (r.active ? '' : ' recurring-row--paused');
+    const statusLabel = r.active ? '' : ' · paused';
     row.innerHTML = `
       <div class="recurring-row-main">
         <span class="recurring-row-name">${escapeHtml(cat)} ${sign}€${fmtMoney(r.amount)}</span>
-        <span class="recurring-row-meta">${escapeHtml(cadenceLabel)} · next ${escapeHtml(fmtDateFull(r.nextDate))}${r.note ? ' · ' + escapeHtml(r.note) : ''}</span>
+        <span class="recurring-row-meta">${escapeHtml(cadenceLabel)} · next ${escapeHtml(fmtDateFull(r.nextDate))}${r.note ? ' · ' + escapeHtml(r.note) : ''}${statusLabel}</span>
       </div>
       <div class="recurring-row-actions">
-        <button class="btn-link" type="button" data-recurring-remove="${r.id}">Remove</button>
+        <button class="btn-link" type="button" data-recurring-toggle="${escapeHtml(r.id)}">${r.active ? 'Pause' : 'Resume'}</button>
+        <button class="btn-link" type="button" data-recurring-remove="${escapeHtml(r.id)}">Remove</button>
       </div>
     `;
     root.appendChild(row);
+  });
+  root.querySelectorAll('[data-recurring-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.recurringToggle;
+      const r = state.recurring.find(x => x.id === id);
+      if (r) {
+        r.active = !r.active;
+        saveState();
+        renderRecurringInSettings();
+      }
+    });
   });
   root.querySelectorAll('[data-recurring-remove]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -3021,6 +3204,10 @@ document.getElementById('recurringForm').addEventListener('submit', (e) => {
 });
 
 // ---------- PIN lock ----------
+// PBKDF2 iteration counts: backups use 200k, the PIN uses 150k. Both are
+// below OWASP's current 600k recommendation for SHA-256, but raising them
+// makes set-PIN and import-backup uncomfortably slow on older phones, and
+// a 4-digit local PIN's 10k-entry keyspace dominates the security anyway.
 async function hashPin(pin, saltB64) {
   const enc = new TextEncoder();
   const salt = bytesFromB64(saltB64);
@@ -3033,6 +3220,17 @@ async function hashPin(pin, saltB64) {
     256
   );
   return b64FromBytes(new Uint8Array(bits));
+}
+
+// Compare two equal-length strings in constant time. Useful against
+// timing-based brute force when the attacker can drive many compare calls.
+// Realistic risk for a local 4-digit PIN is low, but the cost is one line.
+function constantTimeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 function randomSaltB64() {
@@ -3061,7 +3259,7 @@ async function removePin() {
   const current = prompt('Confirm by entering the current PIN.');
   if (current == null) return;
   const hash = await hashPin(current, state.settings.pinSalt);
-  if (hash !== state.settings.pinHash) {
+  if (!constantTimeEqual(hash, state.settings.pinHash)) {
     alert('Wrong PIN. The vault remains bound.');
     return;
   }
@@ -3105,6 +3303,22 @@ function checkPinAndUnlock() {
     input.value = '';
     setTimeout(() => input.focus(), 50);
 
+    // Focus trap: keep Tab cycling between the input and submit so the user
+    // can't tab into browser chrome / the (inert) background.
+    function trap(e) {
+      if (e.key !== 'Tab') return;
+      const focusables = [input, submit];
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
     async function attempt() {
       const v = input.value;
       if (!/^\d{4}$/.test(v)) {
@@ -3112,13 +3326,14 @@ function checkPinAndUnlock() {
         return;
       }
       const hash = await hashPin(v, state.settings.pinSalt);
-      if (hash === state.settings.pinHash) {
+      if (constantTimeEqual(hash, state.settings.pinHash)) {
         overlay.style.display = 'none';
         overlay.setAttribute('aria-hidden', 'true');
         document.getElementById('main').removeAttribute('inert');
         document.getElementById('main').removeAttribute('aria-hidden');
         input.removeEventListener('keydown', onKey);
         submit.removeEventListener('click', attempt);
+        overlay.removeEventListener('keydown', trap);
         speakLine(pick(LINES.lockedRight));
         resolve();
       } else {
@@ -3135,6 +3350,7 @@ function checkPinAndUnlock() {
     }
     input.addEventListener('keydown', onKey);
     submit.addEventListener('click', attempt);
+    overlay.addEventListener('keydown', trap);
   });
 }
 
