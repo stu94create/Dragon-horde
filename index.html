@@ -555,9 +555,20 @@ font-style: italic;
 /* Footer actions */
 .footer-actions {
 display: grid;
-grid-template-columns: 1fr 1fr;
-gap: 12px;
+grid-template-columns: 1fr 1fr 1fr;
+gap: 8px;
 margin-top: 28px;
+}
+.footer-actions .btn {
+font-size: 0.78rem;
+padding: 10px 6px;
+}
+.deeds-count {
+display: inline-block;
+margin-left: 4px;
+font-size: 0.72rem;
+color: var(--gold-bright);
+font-weight: 700;
 }
 
 .btn-ghost {
@@ -871,7 +882,8 @@ user-select: none;
   <ul class="entries" id="entriesList" aria-label="Recent entries, newest first"></ul>
 
   <div class="footer-actions">
-    <button class="btn btn-ghost" id="btnReckoning" type="button" aria-label="View this month's reckoning">The Reckoning</button>
+    <button class="btn btn-ghost" id="btnReckoning" type="button" aria-label="View this month's reckoning">Reckoning</button>
+    <button class="btn btn-ghost" id="btnDeeds" type="button" aria-label="View deeds of the hoard">Deeds<span class="deeds-count" id="deedsCount" aria-hidden="true"></span></button>
     <button class="btn btn-ghost" id="btnSettings" type="button" aria-label="Open settings">Settings</button>
   </div>
 </main>
@@ -1771,7 +1783,7 @@ function drainAchievementQueue() {
   if (!next) return;
   achievementAnnouncing = true;
   setTimeout(() => {
-    playChime();
+    playAchievementFanfare();
     speakLine(pick(LINES.achievementEarned).replace('{name}', next.name));
     setTimeout(() => {
       achievementAnnouncing = false;
@@ -1860,6 +1872,13 @@ function render() {
   if (titleEl) {
     const name = (state.dragonName || '').trim();
     titleEl.textContent = name ? `${name}'s Hoard` : "The Dragon's Hoard";
+  }
+
+  // Deeds count in footer button
+  const deedsCount = document.getElementById('deedsCount');
+  if (deedsCount) {
+    const earned = Object.keys(state.achievements || {}).length;
+    deedsCount.textContent = `${earned}/${ACHIEVEMENTS.length}`;
   }
 
   const filterRow = document.getElementById('entriesFilter');
@@ -2305,7 +2324,7 @@ function playChime() {
   if (ctx.state === 'suspended') ctx.resume().catch(() => {});
   try {
     const now = ctx.currentTime;
-    // Two-tone chime: C5 (523) + G5 (784), brief, with quick decay
+    // Two-tone chime: C5 + G5, brief. Used for edit confirmations.
     [523.25, 783.99].forEach((freq, i) => {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
@@ -2320,6 +2339,44 @@ function playChime() {
       osc.stop(start + 0.75);
     });
   } catch (e) { console.warn('chime failed', e); }
+}
+
+// Triumphant ascending arpeggio for achievements: C5 -> E5 -> G5 -> C6
+// Slower attack, longer sustain than the edit chime so it lands as fanfare.
+function playAchievementFanfare() {
+  if (state.settings.soundEffects !== 'on') return;
+  const ctx = ensureAudioGraph();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  try {
+    const now = ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((freq, i) => {
+      const start = now + i * 0.12;
+      // Main tone
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, start);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 1.0);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 1.05);
+      // Quiet octave shimmer above
+      const shimmer = ctx.createOscillator();
+      shimmer.type = 'sine';
+      shimmer.frequency.setValueAtTime(freq * 2, start);
+      const sgain = ctx.createGain();
+      sgain.gain.setValueAtTime(0.0001, start);
+      sgain.gain.exponentialRampToValueAtTime(0.05, start + 0.02);
+      sgain.gain.exponentialRampToValueAtTime(0.0001, start + 0.6);
+      shimmer.connect(sgain).connect(ctx.destination);
+      shimmer.start(start);
+      shimmer.stop(start + 0.65);
+    });
+  } catch (e) { console.warn('fanfare failed', e); }
 }
 
 // ---------- Reckoning ----------
@@ -2760,10 +2817,12 @@ function renderAchievementsPanel() {
   body.innerHTML = html;
 }
 
-document.getElementById('btnAchievements').addEventListener('click', (e) => {
+function openAchievements(openerEl) {
   renderAchievementsPanel();
-  openPanel('achievementsPanel', e.currentTarget);
-});
+  openPanel('achievementsPanel', openerEl);
+}
+document.getElementById('btnAchievements').addEventListener('click', (e) => openAchievements(e.currentTarget));
+document.getElementById('btnDeeds').addEventListener('click', (e) => openAchievements(e.currentTarget));
 document.getElementById('achievementsClose').addEventListener('click', () => closePanel('achievementsPanel'));
 
 // ---------- Recurring entries ----------
