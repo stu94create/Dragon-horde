@@ -3,7 +3,7 @@
 // PWAs on iOS keep working when Safari ITP would otherwise dump caches.
 //
 // Bump CACHE_VERSION whenever any precached file changes.
-const CACHE_VERSION = 'hoard-v2';
+const CACHE_VERSION = 'hoard-v3';
 
 const PRECACHE = [
   './',
