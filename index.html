@@ -684,9 +684,9 @@ user-select: none;
 </div>
 
 <div class="setting-group">
-  <label class="field-label" for="settingMusic">Reckoning Music</label>
+  <label class="field-label" for="settingMusic">Music</label>
   <select id="settingMusic">
-    <option value="on">On — dread plays during The Reckoning</option>
+    <option value="on">On — dread plays while the hoard is open</option>
     <option value="off">Off — silence</option>
   </select>
 </div>
@@ -1279,18 +1279,38 @@ function fadeAudio(audio, from, to, duration, onDone) {
   }, 40);
 }
 
-function startReckoningMusic() {
+function playAmbient() {
   if (state.settings.reckoningMusic !== 'on') return;
+  if (!reckoningAudio.paused) return;
   fadeAudio(reckoningAudio, 0, RECKONING_VOLUME, 2000);
 }
 
-function stopReckoningMusic() {
+function stopAmbient() {
   if (reckoningAudio.paused) return;
   fadeAudio(reckoningAudio, reckoningAudio.volume, 0, 1500, () => {
     reckoningAudio.pause();
-    reckoningAudio.currentTime = 0;
   });
 }
+
+// Try to start immediately. iOS Safari blocks autoplay without a user
+// gesture so this will silently fail there — the first-gesture listener
+// below picks up the slack.
+playAmbient();
+
+// First-gesture fallback: iOS Safari will allow play() in the same call
+// stack as a tap/keypress. Anywhere on the page is fine.
+let ambientArmed = false;
+function armAmbient() {
+  if (ambientArmed) return;
+  ambientArmed = true;
+  playAmbient();
+  document.removeEventListener('pointerdown', armAmbient);
+  document.removeEventListener('keydown', armAmbient);
+  document.removeEventListener('touchstart', armAmbient);
+}
+document.addEventListener('pointerdown', armAmbient, { passive: true });
+document.addEventListener('touchstart', armAmbient, { passive: true });
+document.addEventListener('keydown', armAmbient);
 
 // ---------- Sound effects (SFX) ----------
 const SFX_VOLUME = 0.55;
@@ -1330,11 +1350,9 @@ function playEmberHiss() { playSfxRandom(sfxHisses); }
 function openReckoning(openerEl) {
   renderReckoning();
   openPanel('reckoningPanel', openerEl);
-  startReckoningMusic();
 }
 
 function closeReckoning() {
-  stopReckoningMusic();
   closePanel('reckoningPanel');
 }
 
@@ -1427,8 +1445,8 @@ document.getElementById('settingVerbosity').addEventListener('change', (e) => {
 document.getElementById('settingMusic').addEventListener('change', (e) => {
   state.settings.reckoningMusic = e.target.value;
   saveState();
-  // If user just turned music off while a Reckoning is open, fade out
-  if (e.target.value === 'off') stopReckoningMusic();
+  if (e.target.value === 'on') playAmbient();
+  else stopAmbient();
 });
 
 document.getElementById('settingSfx').addEventListener('change', (e) => {
