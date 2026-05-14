@@ -987,6 +987,14 @@ user-select: none;
 </div>
 
 <div class="setting-group">
+  <label class="field-label" for="settingSfxVolume">Effects volume</label>
+  <div class="range-row">
+    <input type="range" id="settingSfxVolume" min="0" max="100" step="1" aria-label="Sound effects volume">
+    <span class="range-value" id="sfxVolumeReadout">70%</span>
+  </div>
+</div>
+
+<div class="setting-group">
   <h3 class="section-h" style="margin-bottom: 8px;">Monthly limits</h3>
   <p class="about-text" style="margin-bottom: 12px;">
     Set a monthly budget for each loss category. The dragon warns you when a thief approaches their limit.
@@ -1338,6 +1346,7 @@ function defaultState() {
       reckoningMusic: 'on',
       musicVolume: 0.6,
       soundEffects: 'on',
+      sfxVolume: 0.7,
       pinHash: null,
       pinSalt: null
     }
@@ -1360,6 +1369,7 @@ function normalizeState(p) {
       reckoningMusic: s.reckoningMusic ?? 'on',
       musicVolume: typeof s.musicVolume === 'number' ? s.musicVolume : 0.6,
       soundEffects: s.soundEffects ?? 'on',
+      sfxVolume: typeof s.sfxVolume === 'number' ? s.sfxVolume : 0.7,
       pinHash: typeof s.pinHash === 'string' ? s.pinHash : null,
       pinSalt: typeof s.pinSalt === 'string' ? s.pinSalt : null
     }
@@ -2143,6 +2153,7 @@ reckoningAudio.crossOrigin = 'anonymous';
 let audioCtx = null;
 let musicSource = null;
 let musicGain = null;
+let sfxGain = null;
 let audioFadeId = null;
 let targetMusicVolume = state.settings.musicVolume;
 
@@ -2152,10 +2163,27 @@ function ensureAudioGraph() {
   if (!Ctx) return null;
   try {
     audioCtx = new Ctx();
+    // Music bus
     musicSource = audioCtx.createMediaElementSource(reckoningAudio);
     musicGain = audioCtx.createGain();
     musicGain.gain.value = 0;
     musicSource.connect(musicGain).connect(audioCtx.destination);
+    // SFX bus — procedural sounds and MP3 SFX both feed this so the
+    // slider in Settings scales everything together.
+    sfxGain = audioCtx.createGain();
+    sfxGain.gain.value = state.settings.sfxVolume ?? 0.7;
+    sfxGain.connect(audioCtx.destination);
+    // Route the MP3 SFX through sfxGain. createMediaElementSource is
+    // one-shot per element so this only runs once.
+    [...sfxCoins, ...sfxHisses].forEach(audio => {
+      try {
+        const src = audioCtx.createMediaElementSource(audio);
+        src.connect(sfxGain);
+        audio.volume = 1.0; // master is now sfxGain
+      } catch (e) {
+        console.warn('SFX source attach failed', e);
+      }
+    });
   } catch (e) {
     console.warn('AudioContext setup failed', e);
     audioCtx = null;
@@ -2172,6 +2200,17 @@ function setMusicVolume(v) {
     // Fallback for desktop where the gain isn't wired yet
     reckoningAudio.volume = targetMusicVolume;
   }
+}
+
+function setSfxVolume(v) {
+  const clamped = Math.max(0, Math.min(1, v));
+  state.settings.sfxVolume = clamped;
+  if (sfxGain && audioCtx) {
+    sfxGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    sfxGain.gain.linearRampToValueAtTime(clamped, audioCtx.currentTime + 0.1);
+  }
+  // Fallback for environments where Web Audio isn't yet wired
+  [...sfxCoins, ...sfxHisses].forEach(a => { a.volume = clamped; });
 }
 
 function fadeMusicTo(target, durationMs) {
@@ -2252,14 +2291,16 @@ window.addEventListener('pagehide', () => {
 });
 
 // ---------- Sound effects (SFX) ----------
-const SFX_VOLUME = 0.55;
+// HTMLAudioElement.volume is ignored on iOS but works on desktop. Once the
+// audio graph is wired (after first user gesture), iOS playback level is
+// instead controlled by sfxGain — see ensureAudioGraph + setSfxVolume.
 
 const sfxCoins = [
   new Audio('assets/coin1.mp3'),
   new Audio('assets/coin2.mp3'),
   new Audio('assets/coin3.mp3')
 ];
-sfxCoins.forEach(a => { a.preload = 'auto'; a.volume = SFX_VOLUME; });
+sfxCoins.forEach(a => { a.preload = 'auto'; a.volume = state.settings.sfxVolume ?? 0.7; });
 
 function playSfxRandom(arr) {
   if (state.settings.soundEffects !== 'on') return;
@@ -2267,7 +2308,6 @@ function playSfxRandom(arr) {
   const audio = arr[Math.floor(Math.random() * arr.length)];
   try {
     audio.currentTime = 0;
-    audio.volume = SFX_VOLUME;
     const p = audio.play();
     if (p && p.catch) p.catch(e => console.warn('SFX play blocked:', e));
   } catch (e) {
@@ -2280,7 +2320,7 @@ const sfxHisses = [
   new Audio('assets/hiss2.mp3'),
   new Audio('assets/hiss3.mp3')
 ];
-sfxHisses.forEach(a => { a.preload = 'auto'; a.volume = SFX_VOLUME; });
+sfxHisses.forEach(a => { a.preload = 'auto'; a.volume = state.settings.sfxVolume ?? 0.7; });
 
 function playCoinDrop() { playSfxRandom(sfxCoins); }
 function playEmberHiss() { playSfxRandom(sfxHisses); }
@@ -2311,7 +2351,7 @@ function playSwoosh() {
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.18, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
-    src.connect(filter).connect(gain).connect(ctx.destination);
+    src.connect(filter).connect(gain).connect(sfxGain || ctx.destination);
     src.start();
     src.stop(ctx.currentTime + dur + 0.05);
   } catch (e) { console.warn('swoosh failed', e); }
@@ -2334,7 +2374,7 @@ function playChime() {
       gain.gain.setValueAtTime(0.0001, start);
       gain.gain.exponentialRampToValueAtTime(0.14, start + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.7);
-      osc.connect(gain).connect(ctx.destination);
+      osc.connect(gain).connect(sfxGain || ctx.destination);
       osc.start(start);
       osc.stop(start + 0.75);
     });
@@ -2361,7 +2401,7 @@ function playAchievementFanfare() {
       gain.gain.setValueAtTime(0.0001, start);
       gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + 1.0);
-      osc.connect(gain).connect(ctx.destination);
+      osc.connect(gain).connect(sfxGain || ctx.destination);
       osc.start(start);
       osc.stop(start + 1.05);
       // Quiet octave shimmer above
@@ -2372,7 +2412,7 @@ function playAchievementFanfare() {
       sgain.gain.setValueAtTime(0.0001, start);
       sgain.gain.exponentialRampToValueAtTime(0.05, start + 0.02);
       sgain.gain.exponentialRampToValueAtTime(0.0001, start + 0.6);
-      shimmer.connect(sgain).connect(ctx.destination);
+      shimmer.connect(sgain).connect(sfxGain || ctx.destination);
       shimmer.start(start);
       shimmer.stop(start + 0.65);
     });
@@ -2563,6 +2603,9 @@ function openSettings(openerEl) {
   const volPct = Math.round((state.settings.musicVolume ?? 0.6) * 100);
   document.getElementById('settingMusicVolume').value = volPct;
   document.getElementById('musicVolumeReadout').textContent = `${volPct}%`;
+  const sfxPct = Math.round((state.settings.sfxVolume ?? 0.7) * 100);
+  document.getElementById('settingSfxVolume').value = sfxPct;
+  document.getElementById('sfxVolumeReadout').textContent = `${sfxPct}%`;
   renderBudgetEditor();
   renderRecurringInSettings();
   updatePinButtons();
@@ -2598,6 +2641,23 @@ document.getElementById('settingMusicVolume').addEventListener('input', (e) => {
   document.getElementById('musicVolumeReadout').textContent = `${pct}%`;
   setMusicVolume(vol);
   saveState();
+});
+
+document.getElementById('settingSfxVolume').addEventListener('input', (e) => {
+  const pct = Number(e.target.value);
+  document.getElementById('sfxVolumeReadout').textContent = `${pct}%`;
+  setSfxVolume(pct / 100);
+  saveState();
+});
+
+// Preview the level so users can hear what they're setting. Throttle so
+// dragging the slider doesn't queue up dozens of swooshes.
+let sfxPreviewPending = false;
+document.getElementById('settingSfxVolume').addEventListener('change', () => {
+  if (sfxPreviewPending) return;
+  sfxPreviewPending = true;
+  playSwoosh();
+  setTimeout(() => { sfxPreviewPending = false; }, 300);
 });
 
 document.getElementById('settingSfx').addEventListener('change', (e) => {
