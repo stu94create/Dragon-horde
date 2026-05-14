@@ -2337,15 +2337,23 @@ function ensureAudioGraph() {
     sfxGain = null;
   }
   if (sfxGain) {
-    [...sfxCoins, ...sfxHisses].forEach(audio => {
-      try {
-        const src = audioCtx.createMediaElementSource(audio);
-        src.connect(sfxGain);
-        audio.volume = 1.0;
-      } catch (e) {
-        console.warn('SFX source attach failed', e);
-      }
-    });
+    // Defensive: if this runs before the sfxCoins/sfxHisses consts have
+    // been initialised the spread throws ReferenceError, which would
+    // otherwise propagate out of ensureAudioGraph and stop the script.
+    try {
+      [...sfxCoins, ...sfxHisses].forEach(audio => {
+        try {
+          const src = audioCtx.createMediaElementSource(audio);
+          src.connect(sfxGain);
+          audio.volume = 1.0;
+        } catch (e) {
+          console.warn('SFX source attach failed', e);
+        }
+      });
+    } catch (e) {
+      audioInitError = (audioInitError ? audioInitError + '; ' : '') + `sfxList: ${e.name}`;
+      console.warn('SFX list not ready', e);
+    }
   }
   return audioCtx;
 }
@@ -2398,12 +2406,18 @@ function playAmbient() {
   if (musicGain && audioCtx) {
     musicGain.gain.cancelScheduledValues(audioCtx.currentTime);
     musicGain.gain.setValueAtTime(0, audioCtx.currentTime);
+    const p = reckoningAudio.play();
+    if (p && p.catch) p.catch(e => console.warn('Audio play blocked:', e));
+    fadeMusicTo(targetMusicVolume, 2000);
   } else {
-    reckoningAudio.volume = 0;
+    // Music graph didn't wire up — play the element directly. On iOS the
+    // .volume property is a no-op so don't touch it (touching it on the
+    // desktop fallback would mute briefly; we set targetMusicVolume here
+    // for the rare browser that respects volume).
+    reckoningAudio.volume = targetMusicVolume;
+    const p = reckoningAudio.play();
+    if (p && p.catch) p.catch(e => console.warn('Audio play blocked:', e));
   }
-  const p = reckoningAudio.play();
-  if (p && p.catch) p.catch(e => console.warn('Audio play blocked:', e));
-  fadeMusicTo(targetMusicVolume, 2000);
 }
 
 function stopAmbient() {
@@ -2412,13 +2426,10 @@ function stopAmbient() {
   setTimeout(() => { if (reckoningAudio && !reckoningAudio.paused) reckoningAudio.pause(); }, 1600);
 }
 
-// Try to start immediately. iOS Safari blocks autoplay without a user
-// gesture so this will silently fail there — the first-gesture listener
-// below picks up the slack.
-playAmbient();
-
-// First-gesture fallback: iOS Safari will allow play() in the same call
-// stack as a tap/keypress. Anywhere on the page is fine.
+// First-gesture init: iOS Safari blocks autoplay before a user gesture
+// AND it crashes the script if ensureAudioGraph runs before the SFX
+// consts a few sections below are initialised. So we don't try to play
+// eagerly — the first tap arms everything.
 let ambientArmed = false;
 function armAmbient() {
   if (ambientArmed) return;
