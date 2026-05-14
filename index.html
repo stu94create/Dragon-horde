@@ -269,7 +269,136 @@ white-space: nowrap;
 .entry-actions {
 grid-column: 2 / -1;
 display: flex;
-gap: 4px;
+gap: 12px;
+}
+
+.entries-filter {
+display: flex;
+gap: 8px;
+margin-bottom: 12px;
+}
+.entries-filter input[type="search"] {
+flex: 1;
+background: var(--surface);
+color: var(--bone);
+border: 1px solid var(--border);
+padding: 8px 12px;
+font-family: 'Crimson Pro', serif;
+font-size: 0.95rem;
+border-radius: 0;
+appearance: none;
+-webkit-appearance: none;
+}
+.entries-filter input[type="search"]:focus,
+.entries-filter select:focus {
+outline: 2px solid var(--gold);
+outline-offset: -1px;
+}
+.entries-filter select {
+background: var(--surface);
+color: var(--bone-muted);
+border: 1px solid var(--border);
+font-family: 'Cinzel', serif;
+font-size: 0.82rem;
+text-transform: uppercase;
+letter-spacing: 0.08em;
+padding: 6px 10px;
+}
+
+/* Reckoning charts */
+.reckoning-chart {
+margin: 18px 0 22px;
+}
+.chart-row {
+display: grid;
+grid-template-columns: 110px 1fr 80px;
+gap: 8px;
+align-items: center;
+margin-bottom: 6px;
+font-size: 0.9rem;
+}
+.chart-label {
+color: var(--bone-muted);
+font-family: 'Cinzel', serif;
+font-size: 0.78rem;
+letter-spacing: 0.06em;
+text-transform: uppercase;
+overflow: hidden;
+text-overflow: ellipsis;
+white-space: nowrap;
+}
+.chart-bar-track {
+background: var(--surface);
+border: 1px solid var(--border-soft);
+height: 14px;
+position: relative;
+overflow: hidden;
+}
+.chart-bar {
+height: 100%;
+background: linear-gradient(90deg, rgba(232,95,58,0.3), var(--ember));
+transition: width 0.4s ease-out;
+}
+.chart-bar.over {
+background: linear-gradient(90deg, var(--ember), var(--ember-bright));
+box-shadow: 0 0 8px rgba(232,95,58,0.4);
+}
+.chart-value {
+color: var(--bone);
+font-family: 'Cinzel', serif;
+font-size: 0.82rem;
+text-align: right;
+}
+.spark-svg {
+display: block;
+width: 100%;
+height: 60px;
+margin: 12px 0 6px;
+}
+.spark-svg .spark-area { fill: rgba(212,164,74,0.10); }
+.spark-svg .spark-line { fill: none; stroke: var(--gold); stroke-width: 1.5; }
+.spark-svg .spark-zero { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 3; }
+
+/* Budgets editor in Settings */
+.budget-row {
+display: grid;
+grid-template-columns: 1fr 110px;
+gap: 8px;
+align-items: center;
+margin-bottom: 8px;
+}
+.budget-row label {
+color: var(--bone-muted);
+font-family: 'Cinzel', serif;
+font-size: 0.82rem;
+letter-spacing: 0.06em;
+text-transform: uppercase;
+}
+.budget-row input {
+background: var(--surface);
+color: var(--bone);
+border: 1px solid var(--border);
+padding: 6px 10px;
+font-family: 'Crimson Pro', serif;
+font-size: 0.95rem;
+}
+.budget-row input:focus { outline: 2px solid var(--gold); outline-offset: -1px; }
+
+.range-row {
+display: flex;
+align-items: center;
+gap: 12px;
+}
+.range-row input[type="range"] {
+flex: 1;
+accent-color: var(--gold);
+}
+.range-row .range-value {
+font-family: 'Cinzel', serif;
+font-size: 0.82rem;
+color: var(--bone-muted);
+min-width: 36px;
+text-align: right;
 }
 
 .btn-link {
@@ -589,7 +718,7 @@ user-select: none;
 <body>
 
 <main class="app" id="main">
-  <h1 class="app-title">The Dragon's Hoard</h1>
+  <h1 class="app-title" id="appTitle">The Dragon's Hoard</h1>
 
   <section class="hoard" aria-labelledby="hoard-label">
     <div class="hoard-label" id="hoard-label">The Hoard</div>
@@ -606,6 +735,14 @@ user-select: none;
   </div>
 
   <h2 class="section-h">Recent Entries</h2>
+  <div class="entries-filter" id="entriesFilter" style="display:none;">
+    <input type="search" id="entrySearch" placeholder="Search entries" aria-label="Search entries by category or note" autocomplete="off">
+    <select id="entryTypeFilter" aria-label="Filter by entry type">
+      <option value="all">All</option>
+      <option value="gain">Gains only</option>
+      <option value="loss">Thefts only</option>
+    </select>
+  </div>
   <ul class="entries" id="entriesList" aria-label="Recent entries, newest first"></ul>
 
   <div class="footer-actions">
@@ -684,6 +821,11 @@ user-select: none;
 </div>
 
 <div class="setting-group">
+  <label class="field-label" for="settingDragonName">Name your dragon</label>
+  <input type="text" id="settingDragonName" maxlength="40" placeholder="The Dragon" autocomplete="off">
+</div>
+
+<div class="setting-group">
   <label class="field-label" for="settingMusic">Music</label>
   <select id="settingMusic">
     <option value="on">On — dread plays while the hoard is open</option>
@@ -692,11 +834,27 @@ user-select: none;
 </div>
 
 <div class="setting-group">
+  <label class="field-label" for="settingMusicVolume">Music volume</label>
+  <div class="range-row">
+    <input type="range" id="settingMusicVolume" min="0" max="100" step="1" aria-label="Music volume">
+    <span class="range-value" id="musicVolumeReadout">60%</span>
+  </div>
+</div>
+
+<div class="setting-group">
   <label class="field-label" for="settingSfx">Sound Effects</label>
   <select id="settingSfx">
     <option value="on">On — coin drops, hisses, roars</option>
     <option value="off">Off — silent</option>
   </select>
+</div>
+
+<div class="setting-group">
+  <h3 class="section-h" style="margin-bottom: 8px;">Monthly limits</h3>
+  <p class="about-text" style="margin-bottom: 12px;">
+    Set a monthly budget for each loss category. The dragon warns you when a thief approaches their limit.
+  </p>
+  <div id="budgetEditor"></div>
 </div>
 
 <div class="setting-group">
@@ -854,6 +1012,37 @@ const LINES = {
   reckoningEmpty: [
     'No records this moon. Have you forgotten me?',
     'Silence. Nothing logged. I wait.'
+  ],
+  milestone: [
+    'The hoard has crossed €{n}. The dragon stirs.',
+    '€{n}. A new high. My pile sings.',
+    'Past €{n}. You are learning the way of gold.',
+    '€{n}. A worthy summit. Climb higher.'
+  ],
+  streakPositive: [
+    'Three moons of gain. You learn.',
+    'Three moons unbroken. The hoard knows your hand.',
+    'Three moons of growth. Continue.'
+  ],
+  streakNegative: [
+    'Three moons bled. The thieves grow bold.',
+    'Three moons of loss. Find your spine.',
+    'Three moons of waste. Wake.'
+  ],
+  budgetWarn: [
+    'The {cat} has eaten {pct}% of their tribute. Watch them.',
+    '{pct}% spent on the {cat} this moon. Already.',
+    'The {cat} grows fat. {pct}% of their share gone.'
+  ],
+  budgetBreach: [
+    'The {cat} has feasted past their share. I am displeased.',
+    'The {cat} has broken their limit. Punish them.',
+    'You let the {cat} exceed their bounds. Again.'
+  ],
+  achievementEarned: [
+    'A deed. {name}. The records remember.',
+    'Achievement: {name}. Earned. Continue.',
+    'You have done a thing worth remembering: {name}.'
   ]
 };
 
@@ -873,21 +1062,38 @@ const IDB_KEY = 'current';
 
 function defaultState() {
   return {
-    version: 1,
+    version: 2,
     entries: [],
-    settings: { dragonVerbosity: 'always', reckoningMusic: 'on', soundEffects: 'on' }
+    recurring: [],
+    budgets: {},
+    achievements: {},
+    dragonName: '',
+    settings: {
+      dragonVerbosity: 'always',
+      reckoningMusic: 'on',
+      musicVolume: 0.6,
+      soundEffects: 'on',
+      pinHash: null
+    }
   };
 }
 
 function normalizeState(p) {
   if (!p || typeof p !== 'object') return defaultState();
+  const s = p.settings || {};
   return {
-    version: 1,
+    version: 2,
     entries: Array.isArray(p.entries) ? p.entries : [],
+    recurring: Array.isArray(p.recurring) ? p.recurring : [],
+    budgets: (p.budgets && typeof p.budgets === 'object') ? p.budgets : {},
+    achievements: (p.achievements && typeof p.achievements === 'object') ? p.achievements : {},
+    dragonName: typeof p.dragonName === 'string' ? p.dragonName : '',
     settings: {
-      dragonVerbosity: p.settings?.dragonVerbosity ?? 'always',
-      reckoningMusic: p.settings?.reckoningMusic ?? 'on',
-      soundEffects: p.settings?.soundEffects ?? 'on'
+      dragonVerbosity: s.dragonVerbosity ?? 'always',
+      reckoningMusic: s.reckoningMusic ?? 'on',
+      musicVolume: typeof s.musicVolume === 'number' ? s.musicVolume : 0.6,
+      soundEffects: s.soundEffects ?? 'on',
+      pinHash: typeof s.pinHash === 'string' ? s.pinHash : null
     }
   };
 }
@@ -1021,6 +1227,76 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// ---------- Milestones, budgets, streaks ----------
+const MILESTONE_THRESHOLDS = [
+  100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000
+];
+
+function highestMilestoneReached(hoard) {
+  return MILESTONE_THRESHOLDS.filter(t => hoard >= t).pop() ?? null;
+}
+
+function lastSeenMilestoneKey() { return 'dragonsHoard:lastMilestone'; }
+function getLastSeenMilestone() {
+  const v = Number(localStorage.getItem(lastSeenMilestoneKey()));
+  return Number.isFinite(v) ? v : 0;
+}
+function setLastSeenMilestone(v) {
+  try { localStorage.setItem(lastSeenMilestoneKey(), String(v)); } catch {}
+}
+
+// Returns 'positive', 'negative', or null if no streak of three.
+function detectMonthStreak() {
+  const months = new Set(state.entries.map(e => e.date.slice(0, 7)));
+  if (months.size < 3) return null;
+  const sorted = [...months].sort();
+  const last = sorted[sorted.length - 1];
+  const [ly, lm] = last.split('-').map(Number);
+  function prevMonth(y, m) {
+    return m === 1 ? [y - 1, 12] : [y, m - 1];
+  }
+  const ym = (y, m) => `${y}-${String(m).padStart(2,'0')}`;
+  const required = [last];
+  let [py, pm] = [ly, lm];
+  for (let i = 0; i < 2; i++) {
+    [py, pm] = prevMonth(py, pm);
+    required.push(ym(py, pm));
+  }
+  if (!required.every(k => months.has(k))) return null;
+  const nets = required.map(k => {
+    const monthEntries = state.entries.filter(e => e.date.startsWith(k));
+    return monthEntries.reduce((s, e) => s + (e.type === 'gain' ? e.amount : -e.amount), 0);
+  });
+  if (nets.every(n => n > 0)) return 'positive';
+  if (nets.every(n => n < 0)) return 'negative';
+  return null;
+}
+
+function checkMilestonesAndBudgets(type, amount, categoryId, catName) {
+  // Milestone (hoard crossed a threshold)
+  const hoard = calcHoard();
+  const reached = highestMilestoneReached(hoard);
+  if (reached && reached > getLastSeenMilestone()) {
+    setLastSeenMilestone(reached);
+    setTimeout(() => speakLine(pick(LINES.milestone).replace('{n}', fmtMoney(reached))), 2400);
+    return;
+  }
+  // Budget warning (loss exceeded a configured limit this month)
+  if (type === 'loss' && state.budgets[categoryId]) {
+    const budget = state.budgets[categoryId];
+    const ym = new Date().toISOString().slice(0, 7);
+    const spent = state.entries
+      .filter(e => e.type === 'loss' && e.category === categoryId && e.date.startsWith(ym))
+      .reduce((s, e) => s + e.amount, 0);
+    const pct = Math.round((spent / budget) * 100);
+    if (spent > budget) {
+      setTimeout(() => speakLine(pick(LINES.budgetBreach).replace('{cat}', catName)), 2400);
+    } else if (pct >= 80) {
+      setTimeout(() => speakLine(pick(LINES.budgetWarn).replace('{cat}', catName).replace('{pct}', pct)), 2400);
+    }
+  }
+}
+
 // ---------- Dragon voice ----------
 function speakLine(line) {
   document.getElementById('dragonText').textContent = line;
@@ -1071,6 +1347,19 @@ function announceAction(action, payload) {
 }
 
 // ---------- Render ----------
+let entryFilter = { text: '', type: 'all' };
+const ENTRIES_VISIBLE_LIMIT = 100;
+
+function applyEntryFilter(entries) {
+  const q = entryFilter.text.trim().toLowerCase();
+  return entries.filter(e => {
+    if (entryFilter.type !== 'all' && e.type !== entryFilter.type) return false;
+    if (!q) return true;
+    const cat = categoryName(e.type, e.category).toLowerCase();
+    return cat.includes(q) || (e.note || '').toLowerCase().includes(q);
+  });
+}
+
 function render() {
   const h = calcHoard();
   const hoardEl = document.getElementById('hoardValue');
@@ -1082,6 +1371,18 @@ function render() {
       ? `The hoard is in debt by ${fmtMoney(h)} euros`
       : `The hoard contains ${fmtMoney(h)} euros`
   );
+
+  // App title reflects the dragon's name when set
+  const titleEl = document.getElementById('appTitle');
+  if (titleEl) {
+    const name = (state.dragonName || '').trim();
+    titleEl.textContent = name ? `${name}'s Hoard` : "The Dragon's Hoard";
+  }
+
+  const filterRow = document.getElementById('entriesFilter');
+  if (filterRow) {
+    filterRow.style.display = state.entries.length > 0 ? '' : 'none';
+  }
 
   const list = document.getElementById('entriesList');
   list.innerHTML = '';
@@ -1099,8 +1400,17 @@ function render() {
     if (a.date !== b.date) return b.date.localeCompare(a.date);
     return b.id.localeCompare(a.id);
   });
+  const filtered = applyEntryFilter(sorted);
 
-  sorted.slice(0, 50).forEach(entry => {
+  if (filtered.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'empty-state';
+    li.textContent = 'No entries match the filter.';
+    list.appendChild(li);
+    return;
+  }
+
+  filtered.slice(0, ENTRIES_VISIBLE_LIMIT).forEach(entry => {
     const cat = categoryName(entry.type, entry.category);
     const li = document.createElement('li');
     li.className = 'entry';
@@ -1115,6 +1425,7 @@ function render() {
     const actionPhrase = entry.type === 'gain'
       ? `gained ${fmtMoney(entry.amount)} euros as ${cat}`
       : `${fmtMoney(entry.amount)} euros stolen by ${cat}`;
+    const editLabel = `Edit entry: ${dateFull}, ${actionPhrase}${entry.note ? ', ' + entry.note : ''}`;
     const removeLabel = `Remove entry: ${dateFull}, ${actionPhrase}${entry.note ? ', ' + entry.note : ''}`;
 
     li.innerHTML = `
@@ -1122,14 +1433,25 @@ function render() {
       <span class="entry-detail">${escapeHtml(cat)}${noteHTML}</span>
       <span class="entry-amount ${entry.type}" aria-label="${amtAriaLabel}">${amtSign}€${fmtMoney(entry.amount)}</span>
       <div class="entry-actions">
+        <button class="btn-link" type="button" data-edit="${entry.id}" aria-label="${escapeHtml(editLabel)}">Edit</button>
         <button class="btn-link" type="button" data-delete="${entry.id}" aria-label="${escapeHtml(removeLabel)}">Remove</button>
       </div>
     `;
     list.appendChild(li);
   });
 
+  if (filtered.length > ENTRIES_VISIBLE_LIMIT) {
+    const li = document.createElement('li');
+    li.className = 'empty-state';
+    li.textContent = `${filtered.length - ENTRIES_VISIBLE_LIMIT} older entries hidden. Use the filter to narrow.`;
+    list.appendChild(li);
+  }
+
   list.querySelectorAll('[data-delete]').forEach(btn => {
     btn.addEventListener('click', () => deleteEntry(btn.dataset.delete));
+  });
+  list.querySelectorAll('[data-edit]').forEach(btn => {
+    btn.addEventListener('click', (e) => openEntryEditForm(btn.dataset.edit, e.currentTarget));
   });
 }
 
@@ -1161,6 +1483,7 @@ function openPanel(panelId, openerEl) {
   panel.removeAttribute('inert');
   panel.setAttribute('aria-hidden', 'false');
   panel.dataset.opener = openerEl?.id || '';
+  playSwoosh();
 
   setTimeout(() => {
     const firstFocus = panel.querySelector('input, select, textarea, button:not(.btn-close)');
@@ -1175,6 +1498,7 @@ function closePanel(panelId) {
   panel.setAttribute('data-open', 'false');
   panel.setAttribute('inert', '');
   panel.setAttribute('aria-hidden', 'true');
+  playSwoosh();
 
   main.removeAttribute('inert');
   main.removeAttribute('aria-hidden');
@@ -1188,24 +1512,45 @@ function closePanel(panelId) {
 
 // ---------- Entry form ----------
 let currentEntryType = 'gain';
+let editingEntryId = null;
 
-function openEntryForm(type, openerEl) {
-  currentEntryType = type;
-  document.getElementById('entryPanelTitle').textContent = type === 'gain' ? 'Log Gain' : 'Log Theft';
-  document.getElementById('entrySave').textContent = type === 'gain' ? 'Mark the Gain' : 'Record the Theft';
-
-  const sel = document.getElementById('entryCategory');
-  sel.innerHTML = '';
+function populateCategorySelect(selectEl, type) {
+  selectEl.innerHTML = '';
   CATEGORIES[type].forEach(cat => {
     const opt = document.createElement('option');
     opt.value = cat.id;
     opt.textContent = cat.desc ? `${cat.name} — ${cat.desc}` : cat.name;
-    sel.appendChild(opt);
+    selectEl.appendChild(opt);
   });
+}
 
+function openEntryForm(type, openerEl) {
+  currentEntryType = type;
+  editingEntryId = null;
+  document.getElementById('entryPanelTitle').textContent = type === 'gain' ? 'Log Gain' : 'Log Theft';
+  document.getElementById('entrySave').textContent = type === 'gain' ? 'Mark the Gain' : 'Record the Theft';
+
+  populateCategorySelect(document.getElementById('entryCategory'), type);
   document.getElementById('entryAmount').value = '';
   document.getElementById('entryNote').value = '';
   document.getElementById('entryDate').value = todayISO();
+
+  openPanel('entryPanel', openerEl);
+}
+
+function openEntryEditForm(id, openerEl) {
+  const entry = state.entries.find(e => e.id === id);
+  if (!entry) return;
+  currentEntryType = entry.type;
+  editingEntryId = id;
+  document.getElementById('entryPanelTitle').textContent = entry.type === 'gain' ? 'Edit Gain' : 'Edit Theft';
+  document.getElementById('entrySave').textContent = 'Save Changes';
+
+  populateCategorySelect(document.getElementById('entryCategory'), entry.type);
+  document.getElementById('entryAmount').value = entry.amount;
+  document.getElementById('entryCategory').value = entry.category;
+  document.getElementById('entryNote').value = entry.note || '';
+  document.getElementById('entryDate').value = entry.date;
 
   openPanel('entryPanel', openerEl);
 }
@@ -1221,25 +1566,44 @@ document.getElementById('entryForm').addEventListener('submit', (e) => {
   const category = document.getElementById('entryCategory').value;
   const note = document.getElementById('entryNote').value.trim();
   const date = document.getElementById('entryDate').value || todayISO();
+  const rounded = Math.round(amount * 100) / 100;
+  const isEdit = !!editingEntryId;
 
-  state.entries.push({
-    id: uid(),
-    type: currentEntryType,
-    amount: Math.round(amount * 100) / 100,
-    category,
-    note,
-    date
-  });
+  if (isEdit) {
+    const entry = state.entries.find(en => en.id === editingEntryId);
+    if (entry) {
+      entry.amount = rounded;
+      entry.category = category;
+      entry.note = note;
+      entry.date = date;
+    }
+  } else {
+    state.entries.push({
+      id: uid(),
+      type: currentEntryType,
+      amount: rounded,
+      category,
+      note,
+      date
+    });
+  }
   saveState();
   render();
 
   const catName = categoryName(currentEntryType, category);
   closePanel('entryPanel');
+  editingEntryId = null;
 
   setTimeout(() => {
-    if (currentEntryType === 'gain') playCoinDrop();
-    else if (currentEntryType === 'loss') playEmberHiss();
-    announceAction(currentEntryType, { amount, catName });
+    if (isEdit) {
+      playChime();
+      speakLine('The record is changed. The dragon notes it.');
+    } else {
+      if (currentEntryType === 'gain') playCoinDrop();
+      else if (currentEntryType === 'loss') playEmberHiss();
+      announceAction(currentEntryType, { amount: rounded, catName });
+      checkMilestonesAndBudgets(currentEntryType, rounded, category, catName);
+    }
   }, 120);
 });
 
@@ -1249,6 +1613,15 @@ document.getElementById('entryCancel2').addEventListener('click', () => closePan
 document.getElementById('btnAddGain').addEventListener('click', (e) => openEntryForm('gain', e.currentTarget));
 document.getElementById('btnAddLoss').addEventListener('click', (e) => openEntryForm('loss', e.currentTarget));
 
+document.getElementById('entrySearch').addEventListener('input', (e) => {
+  entryFilter.text = e.target.value;
+  render();
+});
+document.getElementById('entryTypeFilter').addEventListener('change', (e) => {
+  entryFilter.type = e.target.value;
+  render();
+});
+
 // ---------- Reckoning music ----------
 const reckoningAudio = new Audio('assets/reckoning.mp3');
 reckoningAudio.loop = true;
@@ -1256,40 +1629,85 @@ reckoningAudio.loop = true;
 // valid user gesture — the gesture "expires" before the file finishes
 // loading. The service worker precaches this file, so preloading is free.
 reckoningAudio.preload = 'auto';
-const RECKONING_VOLUME = 0.6;
+reckoningAudio.crossOrigin = 'anonymous';
 
+// Web Audio routing: HTMLAudioElement.volume is read-only on iOS Safari,
+// but a GainNode in the audio graph isn't. Route the audio element through
+// MediaElementSource -> GainNode -> destination so the volume slider works
+// everywhere. The AudioContext is created lazily on first user gesture
+// because iOS only allows AudioContext creation/resume from a gesture.
+let audioCtx = null;
+let musicSource = null;
+let musicGain = null;
 let audioFadeId = null;
+let targetMusicVolume = state.settings.musicVolume;
 
-function fadeAudio(audio, from, to, duration, onDone) {
-  if (audioFadeId) { clearInterval(audioFadeId); audioFadeId = null; }
-  audio.volume = Math.max(0, Math.min(1, from));
-  if (from < 0.01 && to > 0) {
-    const p = audio.play();
-    if (p && p.catch) p.catch(e => console.warn('Audio play blocked:', e));
+function ensureAudioGraph() {
+  if (audioCtx) return audioCtx;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return null;
+  try {
+    audioCtx = new Ctx();
+    musicSource = audioCtx.createMediaElementSource(reckoningAudio);
+    musicGain = audioCtx.createGain();
+    musicGain.gain.value = 0;
+    musicSource.connect(musicGain).connect(audioCtx.destination);
+  } catch (e) {
+    console.warn('AudioContext setup failed', e);
+    audioCtx = null;
   }
+  return audioCtx;
+}
+
+function setMusicVolume(v) {
+  targetMusicVolume = Math.max(0, Math.min(1, v));
+  if (musicGain && !reckoningAudio.paused) {
+    musicGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    musicGain.gain.linearRampToValueAtTime(targetMusicVolume, audioCtx.currentTime + 0.2);
+  } else {
+    // Fallback for desktop where the gain isn't wired yet
+    reckoningAudio.volume = targetMusicVolume;
+  }
+}
+
+function fadeMusicTo(target, durationMs) {
+  if (audioFadeId) { clearInterval(audioFadeId); audioFadeId = null; }
+  if (musicGain && audioCtx) {
+    musicGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    musicGain.gain.setValueAtTime(musicGain.gain.value, audioCtx.currentTime);
+    musicGain.gain.linearRampToValueAtTime(target, audioCtx.currentTime + durationMs / 1000);
+    return;
+  }
+  // Fallback: animate audio.volume directly (desktop path before graph init)
+  const from = reckoningAudio.volume;
   const start = Date.now();
   audioFadeId = setInterval(() => {
-    const t = Math.min((Date.now() - start) / duration, 1);
-    audio.volume = Math.max(0, Math.min(1, from + (to - from) * t));
-    if (t >= 1) {
-      clearInterval(audioFadeId);
-      audioFadeId = null;
-      if (onDone) onDone();
-    }
+    const t = Math.min((Date.now() - start) / durationMs, 1);
+    reckoningAudio.volume = Math.max(0, Math.min(1, from + (target - from) * t));
+    if (t >= 1) { clearInterval(audioFadeId); audioFadeId = null; }
   }, 40);
 }
 
 function playAmbient() {
   if (state.settings.reckoningMusic !== 'on') return;
   if (!reckoningAudio.paused) return;
-  fadeAudio(reckoningAudio, 0, RECKONING_VOLUME, 2000);
+  ensureAudioGraph();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  if (musicGain && audioCtx) {
+    musicGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    musicGain.gain.setValueAtTime(0, audioCtx.currentTime);
+  } else {
+    reckoningAudio.volume = 0;
+  }
+  const p = reckoningAudio.play();
+  if (p && p.catch) p.catch(e => console.warn('Audio play blocked:', e));
+  fadeMusicTo(targetMusicVolume, 2000);
 }
 
 function stopAmbient() {
   if (reckoningAudio.paused) return;
-  fadeAudio(reckoningAudio, reckoningAudio.volume, 0, 1500, () => {
-    reckoningAudio.pause();
-  });
+  fadeMusicTo(0, 1500);
+  setTimeout(() => { if (reckoningAudio && !reckoningAudio.paused) reckoningAudio.pause(); }, 1600);
 }
 
 // Try to start immediately. iOS Safari blocks autoplay without a user
@@ -1363,6 +1781,62 @@ sfxHisses.forEach(a => { a.preload = 'auto'; a.volume = SFX_VOLUME; });
 function playCoinDrop() { playSfxRandom(sfxCoins); }
 function playEmberHiss() { playSfxRandom(sfxHisses); }
 
+// Procedural SFX via Web Audio. These cost nothing (no MP3 download) and
+// are tuned to sit underneath the music without competing with it.
+function playSwoosh() {
+  if (state.settings.soundEffects !== 'on') return;
+  const ctx = ensureAudioGraph();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  try {
+    const dur = 0.28;
+    const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      const t = i / bufferSize;
+      data[i] = (Math.random() * 2 - 1) * (1 - t);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1800, ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(420, ctx.currentTime + dur);
+    filter.Q.value = 1.2;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    src.connect(filter).connect(gain).connect(ctx.destination);
+    src.start();
+    src.stop(ctx.currentTime + dur + 0.05);
+  } catch (e) { console.warn('swoosh failed', e); }
+}
+
+function playChime() {
+  if (state.settings.soundEffects !== 'on') return;
+  const ctx = ensureAudioGraph();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  try {
+    const now = ctx.currentTime;
+    // Two-tone chime: C5 (523) + G5 (784), brief, with quick decay
+    [523.25, 783.99].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+      const gain = ctx.createGain();
+      const start = now + i * 0.04;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.14, start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.7);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.75);
+    });
+  } catch (e) { console.warn('chime failed', e); }
+}
+
 // ---------- Reckoning ----------
 function openReckoning(openerEl) {
   renderReckoning();
@@ -1371,6 +1845,72 @@ function openReckoning(openerEl) {
 
 function closeReckoning() {
   closePanel('reckoningPanel');
+}
+
+function buildThiefChart(sortedThieves) {
+  if (sortedThieves.length === 0) return '';
+  const max = Math.max(...sortedThieves.map(t => t[1]));
+  const rows = sortedThieves.map(([name, amount]) => {
+    const lossCat = CATEGORIES.loss.find(c => c.name === name);
+    const catId = lossCat ? lossCat.id : null;
+    const budget = catId && state.budgets[catId] ? state.budgets[catId] : 0;
+    const pct = budget > 0 ? amount / budget : amount / max;
+    const widthPct = Math.min(100, Math.round((budget > 0 ? pct : amount / max) * 100));
+    const over = budget > 0 && amount > budget;
+    const ariaPct = budget > 0 ? `, ${Math.round((amount / budget) * 100)} percent of budget` : '';
+    return `
+      <div class="chart-row">
+        <span class="chart-label" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+        <div class="chart-bar-track" role="img" aria-label="${escapeHtml(name)}: ${fmtMoney(amount)} euros${ariaPct}">
+          <div class="chart-bar ${over ? 'over' : ''}" style="width:${widthPct}%"></div>
+        </div>
+        <span class="chart-value">€${fmtMoney(amount)}</span>
+      </div>
+    `;
+  }).join('');
+  return `
+    <h3 class="section-h" style="margin-top:18px;">The Thieves</h3>
+    <div class="reckoning-chart">${rows}</div>
+  `;
+}
+
+function buildHoardSparkline(monthEntries, ym) {
+  if (monthEntries.length === 0) return '';
+  // Compute daily running total over the month
+  const [yStr, mStr] = ym.split('-');
+  const year = Number(yStr), month = Number(mStr);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const byDay = new Array(daysInMonth + 1).fill(0);
+  monthEntries.forEach(e => {
+    const d = Number(e.date.split('-')[2]);
+    if (Number.isFinite(d) && d >= 1 && d <= daysInMonth) {
+      byDay[d] += e.type === 'gain' ? e.amount : -e.amount;
+    }
+  });
+  let running = 0;
+  const series = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    running += byDay[d];
+    series.push(running);
+  }
+  const min = Math.min(0, ...series);
+  const max = Math.max(0, ...series);
+  const range = max - min || 1;
+  const W = 100, H = 100; // viewBox coordinates
+  const xStep = W / (series.length - 1 || 1);
+  const yFor = v => H - ((v - min) / range) * H;
+  const points = series.map((v, i) => `${(i * xStep).toFixed(2)},${yFor(v).toFixed(2)}`);
+  const linePath = `M ${points.join(' L ')}`;
+  const areaPath = `${linePath} L ${(W).toFixed(2)},${yFor(min).toFixed(2)} L 0,${yFor(min).toFixed(2)} Z`;
+  const zeroY = yFor(0).toFixed(2);
+  return `
+    <h3 class="section-h" style="margin-top:18px;">The Pile This Moon</h3>
+    <svg class="spark-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Daily running balance for the month">
+      <line class="spark-zero" x1="0" y1="${zeroY}" x2="${W}" y2="${zeroY}"/>
+      <path class="spark-area" d="${areaPath}"/>
+      <path class="spark-line" d="${linePath}"/>
+    </svg>
+  `;
 }
 
 function renderReckoning() {
@@ -1434,6 +1974,9 @@ function renderReckoning() {
       </div>
     ` : ''}
 
+    ${buildThiefChart(sortedThieves)}
+    ${buildHoardSparkline(monthEntries, ym)}
+
     <div class="reckoning-verdict" role="status" aria-live="polite" aria-atomic="true">
       ${escapeHtml(verdict)}
     </div>
@@ -1444,15 +1987,51 @@ document.getElementById('btnReckoning').addEventListener('click', (e) => openRec
 document.getElementById('reckoningClose').addEventListener('click', closeReckoning);
 
 // ---------- Settings ----------
+function renderBudgetEditor() {
+  const root = document.getElementById('budgetEditor');
+  if (!root) return;
+  root.innerHTML = '';
+  CATEGORIES.loss.forEach(cat => {
+    const row = document.createElement('div');
+    row.className = 'budget-row';
+    const current = state.budgets[cat.id] ?? '';
+    row.innerHTML = `
+      <label for="budget-${cat.id}">${escapeHtml(cat.name)}</label>
+      <input type="number" id="budget-${cat.id}" data-cat="${cat.id}" min="0" step="1" inputmode="decimal" value="${current}" placeholder="No limit">
+    `;
+    root.appendChild(row);
+  });
+  root.querySelectorAll('input[data-cat]').forEach(input => {
+    input.addEventListener('change', (e) => {
+      const id = e.target.dataset.cat;
+      const v = parseFloat(e.target.value);
+      if (Number.isFinite(v) && v > 0) state.budgets[id] = Math.round(v * 100) / 100;
+      else delete state.budgets[id];
+      saveState();
+    });
+  });
+}
+
 function openSettings(openerEl) {
   document.getElementById('settingVerbosity').value = state.settings.dragonVerbosity;
   document.getElementById('settingMusic').value = state.settings.reckoningMusic;
   document.getElementById('settingSfx').value = state.settings.soundEffects;
+  document.getElementById('settingDragonName').value = state.dragonName || '';
+  const volPct = Math.round((state.settings.musicVolume ?? 0.6) * 100);
+  document.getElementById('settingMusicVolume').value = volPct;
+  document.getElementById('musicVolumeReadout').textContent = `${volPct}%`;
+  renderBudgetEditor();
   openPanel('settingsPanel', openerEl);
 }
 
 document.getElementById('btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
 document.getElementById('settingsClose').addEventListener('click', () => closePanel('settingsPanel'));
+
+document.getElementById('settingDragonName').addEventListener('input', (e) => {
+  state.dragonName = e.target.value.slice(0, 40);
+  saveState();
+  render();
+});
 
 document.getElementById('settingVerbosity').addEventListener('change', (e) => {
   state.settings.dragonVerbosity = e.target.value;
@@ -1464,6 +2043,15 @@ document.getElementById('settingMusic').addEventListener('change', (e) => {
   saveState();
   if (e.target.value === 'on') playAmbient();
   else stopAmbient();
+});
+
+document.getElementById('settingMusicVolume').addEventListener('input', (e) => {
+  const pct = Number(e.target.value);
+  const vol = pct / 100;
+  state.settings.musicVolume = vol;
+  document.getElementById('musicVolumeReadout').textContent = `${pct}%`;
+  setMusicVolume(vol);
+  saveState();
 });
 
 document.getElementById('settingSfx').addEventListener('change', (e) => {
@@ -1563,8 +2151,23 @@ document.getElementById('importFile').addEventListener('change', (e) => {
 
 // ---------- Init ----------
 render();
+// Initialise the milestone tracker to the current hoard so existing users
+// don't get spammed with milestone lines for thresholds they crossed long ago.
+if (getLastSeenMilestone() === 0) {
+  const reached = highestMilestoneReached(calcHoard());
+  if (reached) setLastSeenMilestone(reached);
+}
 // Slight delay so VoiceOver settles on the page before the live region speaks
-setTimeout(() => announceAction('open'), 400);
+setTimeout(() => {
+  announceAction('open');
+  // Streak follow-up (~3s after the opening line)
+  setTimeout(() => {
+    if (state.settings.dragonVerbosity === 'quiet') return;
+    const streak = detectMonthStreak();
+    if (streak === 'positive') speakLine(pick(LINES.streakPositive));
+    else if (streak === 'negative') speakLine(pick(LINES.streakNegative));
+  }, 4200);
+}, 400);
 </script>
 
 </body>
