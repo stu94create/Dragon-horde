@@ -1,0 +1,84 @@
+// Service worker for The Dragon's Hoard.
+// Precaches the app shell so the app boots offline and so installed
+// PWAs on iOS keep working when Safari ITP would otherwise dump caches.
+//
+// Bump CACHE_VERSION whenever any precached file changes.
+const CACHE_VERSION = 'hoard-v1';
+
+const PRECACHE = [
+  './',
+  './index.html',
+  './manifest.json',
+  './assets/bg.png',
+  './assets/reckoning.mp3',
+  './assets/coin1.mp3',
+  './assets/coin2.mp3',
+  './assets/coin3.mp3',
+  './assets/hiss1.mp3',
+  './assets/hiss2.mp3',
+  './assets/hiss3.mp3',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
+  './icons/apple-touch-icon.png'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_VERSION).then((cache) => cache.addAll(PRECACHE))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k))
+      )
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+
+  const url = new URL(req.url);
+  // Only handle same-origin requests; let the network handle Google Fonts etc.
+  if (url.origin !== self.location.origin) return;
+
+  // For navigation requests, prefer cache so the app still opens offline,
+  // but try the network in the background to pick up updates.
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      caches.match('./index.html').then((cached) => {
+        const fetchPromise = fetch(req)
+          .then((res) => {
+            if (res && res.ok) {
+              const copy = res.clone();
+              caches.open(CACHE_VERSION).then((c) => c.put('./index.html', copy));
+            }
+            return res;
+          })
+          .catch(() => cached);
+        return cached || fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // For everything else: cache-first, then network.
+  event.respondWith(
+    caches.match(req).then((cached) => {
+      if (cached) return cached;
+      return fetch(req).then((res) => {
+        if (res && res.ok && res.type === 'basic') {
+          const copy = res.clone();
+          caches.open(CACHE_VERSION).then((c) => c.put(req, copy));
+        }
+        return res;
+      });
+    })
+  );
+});

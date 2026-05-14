@@ -6,6 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0a0706">
 <title>The Dragon's Hoard</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hoard">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
@@ -692,9 +700,21 @@ user-select: none;
 </div>
 
 <div class="setting-group">
+  <h3 class="section-h" style="margin-bottom: 8px;">The Scrolls</h3>
+  <p class="about-text" style="margin-bottom: 12px;">
+    Save your hoard as a backup file, or restore from one. Use this before clearing browser data, switching devices, or if you have not opened the app in a while.
+  </p>
+  <div class="form-actions">
+    <button type="button" class="btn" id="btnExport">Export backup</button>
+    <label class="btn" for="importFile" style="cursor:pointer;">Import backup</label>
+    <input type="file" id="importFile" accept="application/json,.json" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
+  </div>
+</div>
+
+<div class="setting-group">
   <h3 class="section-h" style="margin-bottom: 8px;">About</h3>
   <p class="about-text">
-    The Dragon's Hoard is a budgeting ledger watched over by a slow, possessive dragon. All data is stored locally on this device. No accounts. No servers.
+    The Dragon's Hoard is a budgeting ledger watched over by a slow, possessive dragon. All data is stored locally on this device. No accounts. No servers. For best durability on iPhone, add the app to your Home Screen.
   </p>
 </div>
 
@@ -838,26 +858,108 @@ const LINES = {
 };
 
 // ---------- State ----------
-let state = loadState();
+// Storage strategy for iOS data durability:
+//   * localStorage is the fast synchronous primary store.
+//   * IndexedDB mirrors every write asynchronously. On iOS Safari, ITP
+//     can wipe localStorage after 7 days of no visits, so on load we
+//     fall back to the IDB copy if localStorage looks empty/broken.
+//   * navigator.storage.persist() is requested at startup so the OS
+//     deprioritises this site for eviction-under-storage-pressure.
+//   * Installing as a PWA (Add to Home Screen) gives the app its own
+//     storage container that ITP doesn't touch — see manifest.json.
+const IDB_NAME = 'dragonsHoardDB';
+const IDB_STORE = 'state';
+const IDB_KEY = 'current';
 
-function loadState() {
+function defaultState() {
+  return {
+    version: 1,
+    entries: [],
+    settings: { dragonVerbosity: 'always', reckoningMusic: 'on', soundEffects: 'on' }
+  };
+}
+
+function normalizeState(p) {
+  if (!p || typeof p !== 'object') return defaultState();
+  return {
+    version: 1,
+    entries: Array.isArray(p.entries) ? p.entries : [],
+    settings: {
+      dragonVerbosity: p.settings?.dragonVerbosity ?? 'always',
+      reckoningMusic: p.settings?.reckoningMusic ?? 'on',
+      soundEffects: p.settings?.soundEffects ?? 'on'
+    }
+  };
+}
+
+function openIDB() {
+  return new Promise((resolve) => {
+    if (!('indexedDB' in self)) { resolve(null); return; }
+    let req;
+    try { req = indexedDB.open(IDB_NAME, 1); }
+    catch (e) { resolve(null); return; }
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => { console.warn('IDB open failed', req.error); resolve(null); };
+    req.onblocked = () => resolve(null);
+  });
+}
+
+let idbPromise = openIDB();
+
+function idbGet() {
+  return idbPromise.then((db) => {
+    if (!db) return null;
+    return new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+      req.onsuccess = () => resolve(req.result ?? null);
+      req.onerror = () => resolve(null);
+    });
+  });
+}
+
+function idbPut(value) {
+  return idbPromise.then((db) => {
+    if (!db) return;
+    return new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, IDB_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+      tx.onabort = () => resolve();
+    });
+  });
+}
+
+function loadStateSync() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const p = JSON.parse(raw);
-      return {
-        version: 1,
-        entries: Array.isArray(p.entries) ? p.entries : [],
-        settings: {
-          dragonVerbosity: p.settings?.dragonVerbosity ?? 'always',
-          reckoningMusic: p.settings?.reckoningMusic ?? 'on',
-          soundEffects: p.settings?.soundEffects ?? 'on'
-        }
-      };
-    }
-  } catch (e) { console.warn('Load failed', e); }
-  return { version: 1, entries: [], settings: { dragonVerbosity: 'always', reckoningMusic: 'on', soundEffects: 'on' } };
+    if (raw) return normalizeState(JSON.parse(raw));
+  } catch (e) { console.warn('localStorage load failed', e); }
+  return null;
 }
+
+let state = loadStateSync() || defaultState();
+
+// If localStorage was empty/broken, restore from IndexedDB if we have a
+// backup there (this is the iOS-ITP recovery path).
+(async () => {
+  if (state.entries.length === 0) {
+    try {
+      const fromIdb = await idbGet();
+      if (fromIdb && Array.isArray(fromIdb.entries) && fromIdb.entries.length > 0) {
+        state = normalizeState(fromIdb);
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+        render();
+        speakLine('I remember. The records were buried, but the dragon does not forget.');
+      }
+    } catch (e) { console.warn('IDB recovery failed', e); }
+  }
+})();
 
 let saveErrorAnnounced = false;
 function saveState() {
@@ -870,6 +972,8 @@ function saveState() {
       speakLine('The records do not stick. Storage refuses me.');
     }
   }
+  // Mirror asynchronously to IndexedDB. Don't block the UI on it.
+  idbPut(state).catch(() => {});
 }
 
 // ---------- Helpers ----------
@@ -1347,6 +1451,76 @@ document.addEventListener('keydown', (e) => {
       else closePanel(p.id);
     });
   }
+});
+
+// ---------- PWA / storage durability ----------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW register failed', e));
+  });
+}
+
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persisted().then((already) => {
+    if (already) return;
+    navigator.storage.persist().then((granted) => {
+      console.info('Persistent storage:', granted ? 'granted' : 'denied');
+    }).catch(() => {});
+  }).catch(() => {});
+}
+
+// ---------- Export / Import (manual backup) ----------
+function exportHoard() {
+  const payload = {
+    app: 'dragons-hoard',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    state
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = todayISO();
+  a.href = url;
+  a.download = `dragons-hoard-backup-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+  speakLine('The hoard is sealed in a scroll. Guard it well.');
+}
+
+function importHoardFromFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    let payload;
+    try { payload = JSON.parse(String(reader.result)); }
+    catch { alert('That scroll is unreadable. Import cancelled.'); return; }
+
+    const candidate = payload && payload.state ? payload.state : payload;
+    if (!candidate || !Array.isArray(candidate.entries)) {
+      alert('That scroll holds no hoard. Import cancelled.');
+      return;
+    }
+    const incoming = normalizeState(candidate);
+    const msg = state.entries.length === 0
+      ? `Import ${incoming.entries.length} entries into the hoard?`
+      : `Replace your current ${state.entries.length} entries with ${incoming.entries.length} from the backup? This cannot be undone.`;
+    if (!confirm(msg)) return;
+
+    state = incoming;
+    saveState();
+    render();
+    speakLine('The scroll is read. The hoard remembers.');
+  };
+  reader.onerror = () => alert('The scroll could not be read.');
+  reader.readAsText(file);
+}
+
+document.getElementById('btnExport').addEventListener('click', exportHoard);
+document.getElementById('importFile').addEventListener('change', (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (file) importHoardFromFile(file);
+  e.target.value = '';
 });
 
 // ---------- Init ----------
