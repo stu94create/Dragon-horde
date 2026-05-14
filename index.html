@@ -1252,7 +1252,10 @@ document.getElementById('btnAddLoss').addEventListener('click', (e) => openEntry
 // ---------- Reckoning music ----------
 const reckoningAudio = new Audio('assets/reckoning.mp3');
 reckoningAudio.loop = true;
-reckoningAudio.preload = 'none';
+// iOS Safari will refuse to start playback on a cold <audio> even with a
+// valid user gesture — the gesture "expires" before the file finishes
+// loading. The service worker precaches this file, so preloading is free.
+reckoningAudio.preload = 'auto';
 const RECKONING_VOLUME = 0.6;
 
 let audioFadeId = null;
