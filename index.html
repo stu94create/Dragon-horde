@@ -1312,6 +1312,23 @@ document.addEventListener('pointerdown', armAmbient, { passive: true });
 document.addEventListener('touchstart', armAmbient, { passive: true });
 document.addEventListener('keydown', armAmbient);
 
+// Pause music when the user leaves the tab / backgrounds Safari, resume
+// when they come back. iOS Safari otherwise keeps web audio playing in
+// the background indefinitely.
+let resumeOnVisible = false;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    resumeOnVisible = !reckoningAudio.paused;
+    if (resumeOnVisible) reckoningAudio.pause();
+  } else if (resumeOnVisible && state.settings.reckoningMusic === 'on') {
+    resumeOnVisible = false;
+    reckoningAudio.play().catch(() => {});
+  }
+});
+window.addEventListener('pagehide', () => {
+  if (!reckoningAudio.paused) reckoningAudio.pause();
+});
+
 // ---------- Sound effects (SFX) ----------
 const SFX_VOLUME = 0.55;
 
