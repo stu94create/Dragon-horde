@@ -2269,6 +2269,11 @@ reckoningAudio.loop = true;
 // valid user gesture — the gesture "expires" before the file finishes
 // loading. The service worker precaches this file, so preloading is free.
 reckoningAudio.preload = 'auto';
+// Keep crossOrigin set even though assets/reckoning.mp3 is same-origin.
+// Some iOS Safari versions refuse to create a MediaElementSource for an
+// audio element that loaded without this attribute, which silently breaks
+// both the music graph and the SFX graph (they share an AudioContext).
+reckoningAudio.crossOrigin = 'anonymous';
 
 // Web Audio routing: HTMLAudioElement.volume is read-only on iOS Safari,
 // but a GainNode in the audio graph isn't. Route the audio element through
