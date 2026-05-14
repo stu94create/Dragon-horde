@@ -2278,17 +2278,15 @@ document.getElementById('entryTypeFilter').addEventListener('change', (e) => {
 });
 
 // ---------- Reckoning music ----------
-const reckoningAudio = new Audio('assets/reckoning.mp3');
-reckoningAudio.loop = true;
-// iOS Safari will refuse to start playback on a cold <audio> even with a
-// valid user gesture — the gesture "expires" before the file finishes
-// loading. The service worker precaches this file, so preloading is free.
-reckoningAudio.preload = 'auto';
-// Keep crossOrigin set even though assets/reckoning.mp3 is same-origin.
-// Some iOS Safari versions refuse to create a MediaElementSource for an
-// audio element that loaded without this attribute, which silently breaks
-// both the music graph and the SFX graph (they share an AudioContext).
+// Build the element without src first so crossOrigin is set BEFORE the
+// fetch starts. iOS Safari refuses to wrap an audio element in a
+// MediaElementSource when crossOrigin was set after the request began —
+// the element is treated as "tainted" even for same-origin URLs.
+const reckoningAudio = new Audio();
 reckoningAudio.crossOrigin = 'anonymous';
+reckoningAudio.loop = true;
+reckoningAudio.preload = 'auto';
+reckoningAudio.src = 'assets/reckoning.mp3';
 
 // Web Audio routing: HTMLAudioElement.volume is read-only on iOS Safari,
 // but a GainNode in the audio graph isn't. Route the audio element through
@@ -2302,36 +2300,52 @@ let sfxGain = null;
 let audioFadeId = null;
 let targetMusicVolume = state.settings.musicVolume;
 
+let audioInitError = null;
+
 function ensureAudioGraph() {
   if (audioCtx) return audioCtx;
   const Ctx = window.AudioContext || window.webkitAudioContext;
-  if (!Ctx) return null;
+  if (!Ctx) { audioInitError = 'no AudioContext'; return null; }
   try {
     audioCtx = new Ctx();
-    // Music bus
+  } catch (e) {
+    audioInitError = `ctx: ${e.name}`;
+    console.warn('AudioContext create failed', e);
+    audioCtx = null;
+    return null;
+  }
+  // Music bus — isolate failures here so they don't kill SFX routing too.
+  try {
     musicSource = audioCtx.createMediaElementSource(reckoningAudio);
     musicGain = audioCtx.createGain();
     musicGain.gain.value = 0;
     musicSource.connect(musicGain).connect(audioCtx.destination);
-    // SFX bus — procedural sounds and MP3 SFX both feed this so the
-    // slider in Settings scales everything together.
+  } catch (e) {
+    audioInitError = `music: ${e.name}`;
+    console.warn('Music graph attach failed', e);
+    musicSource = null;
+    musicGain = null;
+  }
+  // SFX bus
+  try {
     sfxGain = audioCtx.createGain();
     sfxGain.gain.value = state.settings.sfxVolume ?? 0.7;
     sfxGain.connect(audioCtx.destination);
-    // Route the MP3 SFX through sfxGain. createMediaElementSource is
-    // one-shot per element so this only runs once.
+  } catch (e) {
+    audioInitError = (audioInitError ? audioInitError + '; ' : '') + `sfxGain: ${e.name}`;
+    console.warn('SFX gain create failed', e);
+    sfxGain = null;
+  }
+  if (sfxGain) {
     [...sfxCoins, ...sfxHisses].forEach(audio => {
       try {
         const src = audioCtx.createMediaElementSource(audio);
         src.connect(sfxGain);
-        audio.volume = 1.0; // master is now sfxGain
+        audio.volume = 1.0;
       } catch (e) {
         console.warn('SFX source attach failed', e);
       }
     });
-  } catch (e) {
-    console.warn('AudioContext setup failed', e);
-    audioCtx = null;
   }
   return audioCtx;
 }
@@ -2440,12 +2454,20 @@ window.addEventListener('pagehide', () => {
 // audio graph is wired (after first user gesture), iOS playback level is
 // instead controlled by sfxGain — see ensureAudioGraph + setSfxVolume.
 
+function buildSfx(url) {
+  const a = new Audio();
+  a.crossOrigin = 'anonymous';
+  a.preload = 'auto';
+  a.volume = state.settings.sfxVolume ?? 0.7;
+  a.src = url;
+  return a;
+}
+
 const sfxCoins = [
-  new Audio('assets/coin1.mp3'),
-  new Audio('assets/coin2.mp3'),
-  new Audio('assets/coin3.mp3')
+  buildSfx('assets/coin1.mp3'),
+  buildSfx('assets/coin2.mp3'),
+  buildSfx('assets/coin3.mp3')
 ];
-sfxCoins.forEach(a => { a.preload = 'auto'; a.volume = state.settings.sfxVolume ?? 0.7; });
 
 function playSfxRandom(arr) {
   if (state.settings.soundEffects !== 'on') return;
@@ -2461,11 +2483,10 @@ function playSfxRandom(arr) {
 }
 
 const sfxHisses = [
-  new Audio('assets/hiss1.mp3'),
-  new Audio('assets/hiss2.mp3'),
-  new Audio('assets/hiss3.mp3')
+  buildSfx('assets/hiss1.mp3'),
+  buildSfx('assets/hiss2.mp3'),
+  buildSfx('assets/hiss3.mp3')
 ];
-sfxHisses.forEach(a => { a.preload = 'auto'; a.volume = state.settings.sfxVolume ?? 0.7; });
 
 function playCoinDrop() { playSfxRandom(sfxCoins); }
 function playEmberHiss() { playSfxRandom(sfxHisses); }
@@ -2823,10 +2844,11 @@ function runSoundTest() {
   lines.push(`music vol: ${Math.round((state.settings.musicVolume ?? 0) * 100)}%`);
   lines.push(`sfx vol: ${Math.round((state.settings.sfxVolume ?? 0) * 100)}%`);
   if (!ctx) {
-    lines.push('AudioContext: unavailable');
+    lines.push(`AudioContext: unavailable (${audioInitError || 'no detail'})`);
   } else {
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-    lines.push(`AudioContext: ${ctx.state}`);
+    lines.push(`AudioContext: ${ctx.state}${audioInitError ? ' (' + audioInitError + ')' : ''}`);
+    lines.push(`musicGain: ${musicGain ? 'wired' : 'missing'}, sfxGain: ${sfxGain ? 'wired' : 'missing'}`);
   }
   lines.push(`music element paused: ${reckoningAudio.paused}, readyState: ${reckoningAudio.readyState}`);
   // Force-play a chime and swoosh regardless of the setting so the user can
