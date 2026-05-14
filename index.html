@@ -401,6 +401,131 @@ min-width: 36px;
 text-align: right;
 }
 
+/* Achievements list */
+.achievement {
+display: grid;
+grid-template-columns: 32px 1fr auto;
+gap: 12px;
+padding: 12px 0;
+border-bottom: 1px solid var(--border-soft);
+align-items: start;
+}
+.achievement-icon {
+font-family: 'Cinzel', serif;
+font-size: 1.2rem;
+text-align: center;
+color: var(--bone-dim);
+margin-top: 1px;
+}
+.achievement.earned .achievement-icon {
+color: var(--gold-bright);
+text-shadow: 0 0 8px rgba(244,196,96,0.4);
+}
+.achievement-name {
+font-family: 'Cinzel', serif;
+font-size: 0.92rem;
+letter-spacing: 0.04em;
+color: var(--bone-dim);
+margin-bottom: 2px;
+}
+.achievement.earned .achievement-name { color: var(--gold); }
+.achievement-desc {
+font-size: 0.88rem;
+color: var(--bone-muted);
+}
+.achievement-date {
+font-family: 'Cinzel', serif;
+font-size: 0.75rem;
+color: var(--bone-dim);
+white-space: nowrap;
+}
+
+/* Recurring list rows */
+.recurring-row {
+display: grid;
+grid-template-columns: 1fr auto;
+gap: 6px 12px;
+padding: 10px 0;
+border-bottom: 1px solid var(--border-soft);
+align-items: center;
+}
+.recurring-row-main {
+display: flex;
+flex-direction: column;
+gap: 2px;
+}
+.recurring-row-name {
+font-family: 'Cinzel', serif;
+font-size: 0.92rem;
+color: var(--bone);
+}
+.recurring-row-meta {
+font-size: 0.84rem;
+color: var(--bone-muted);
+}
+.recurring-row-actions {
+display: flex;
+gap: 10px;
+}
+.recurring-empty {
+font-style: italic;
+color: var(--bone-muted);
+padding: 8px 0;
+}
+
+/* PIN overlay */
+.pin-overlay {
+position: fixed;
+inset: 0;
+background: var(--bg);
+z-index: 1000;
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 24px;
+}
+.pin-card {
+max-width: 360px;
+width: 100%;
+text-align: center;
+background: var(--surface);
+border: 1px solid var(--border);
+padding: 32px 24px;
+}
+.pin-card .panel-title { margin-bottom: 18px; }
+.pin-prompt {
+color: var(--bone-muted);
+font-family: 'Crimson Pro', serif;
+font-style: italic;
+margin-bottom: 18px;
+}
+.pin-card input {
+width: 8ch;
+text-align: center;
+letter-spacing: 0.6em;
+font-size: 1.6rem;
+background: var(--surface-raised);
+color: var(--gold-bright);
+border: 1px solid var(--border);
+padding: 12px 8px;
+margin: 0 auto 16px;
+display: block;
+font-family: 'Cinzel', serif;
+}
+.pin-card input:focus { outline: 2px solid var(--gold); }
+.pin-card.shake { animation: shake 0.36s; }
+@keyframes shake {
+0%, 100% { transform: translateX(0); }
+20%, 60% { transform: translateX(-8px); }
+40%, 80% { transform: translateX(8px); }
+}
+.pin-error {
+color: var(--ember-bright);
+font-size: 0.88rem;
+min-height: 1.2em;
+margin-bottom: 4px;
+}
+
 .btn-link {
 background: transparent;
 border: none;
@@ -870,6 +995,38 @@ user-select: none;
 </div>
 
 <div class="setting-group">
+  <h3 class="section-h" style="margin-bottom: 8px;">Recurring</h3>
+  <p class="about-text" style="margin-bottom: 12px;">
+    Tributes that arrive on a schedule. Salaries, rent, subscriptions. The dragon logs them for you when each cycle turns.
+  </p>
+  <div id="recurringList"></div>
+  <div class="form-actions" style="margin-top:10px;">
+    <button type="button" class="btn" id="btnAddRecurring">Add recurring</button>
+  </div>
+</div>
+
+<div class="setting-group">
+  <h3 class="section-h" style="margin-bottom: 8px;">Deeds of the Hoard</h3>
+  <p class="about-text" style="margin-bottom: 12px;">
+    Achievements the dragon has carved into the cave wall.
+  </p>
+  <div class="form-actions">
+    <button type="button" class="btn" id="btnAchievements">View deeds</button>
+  </div>
+</div>
+
+<div class="setting-group">
+  <h3 class="section-h" style="margin-bottom: 8px;">The Vault Seal</h3>
+  <p class="about-text" style="margin-bottom: 12px;">
+    A four-digit secret. Required to open the hoard. The dragon forgets nothing.
+  </p>
+  <div class="form-actions">
+    <button type="button" class="btn" id="btnSetPin">Set PIN</button>
+    <button type="button" class="btn" id="btnRemovePin" style="display:none;">Remove PIN</button>
+  </div>
+</div>
+
+<div class="setting-group">
   <h3 class="section-h" style="margin-bottom: 8px;">About</h3>
   <p class="about-text">
     The Dragon's Hoard is a budgeting ledger watched over by a slow, possessive dragon. All data is stored locally on this device. No accounts. No servers. For best durability on iPhone, add the app to your Home Screen.
@@ -884,6 +1041,79 @@ user-select: none;
 
   </div>
 </aside>
+
+<!-- Achievements panel -->
+
+<aside class="panel" id="achievementsPanel" role="dialog" aria-modal="true" aria-labelledby="achievementsTitle" aria-hidden="true" inert>
+  <div class="panel-inner">
+    <div class="panel-header">
+      <h2 class="panel-title" id="achievementsTitle">Deeds of the Hoard</h2>
+      <button class="btn-close" type="button" id="achievementsClose" aria-label="Close the deeds">Close</button>
+    </div>
+    <div id="achievementsBody"></div>
+  </div>
+</aside>
+
+<!-- Recurring entry editor panel -->
+
+<aside class="panel" id="recurringPanel" role="dialog" aria-modal="true" aria-labelledby="recurringTitle" aria-hidden="true" inert>
+  <div class="panel-inner">
+    <div class="panel-header">
+      <h2 class="panel-title" id="recurringTitle">New Recurring</h2>
+      <button class="btn-close" type="button" id="recurringClose" aria-label="Cancel and close">Cancel</button>
+    </div>
+    <form id="recurringForm" novalidate>
+      <div class="field">
+        <label class="field-label" for="recurringType">Type</label>
+        <select id="recurringType" required>
+          <option value="gain">Tribute (gain)</option>
+          <option value="loss">Tax (theft)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="recurringCategory">Category</label>
+        <select id="recurringCategory" required></select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="recurringAmount">Amount in euros</label>
+        <input type="number" id="recurringAmount" inputmode="decimal" step="0.01" min="0.01" required>
+      </div>
+      <div class="field">
+        <label class="field-label" for="recurringNote">Note (optional)</label>
+        <input type="text" id="recurringNote" maxlength="120" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="field-label" for="recurringCadence">Cadence</label>
+        <select id="recurringCadence" required>
+          <option value="monthly">Every moon (monthly)</option>
+          <option value="weekly">Every week</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="recurringStart">Next due</label>
+        <input type="date" id="recurringStart" required>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn" id="recurringCancel2">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="recurringSave">Save</button>
+      </div>
+    </form>
+  </div>
+</aside>
+
+<!-- PIN lock overlay -->
+
+<div class="pin-overlay" id="pinOverlay" role="dialog" aria-modal="true" aria-labelledby="pinTitle" aria-hidden="true" style="display:none;">
+  <div class="pin-card">
+    <h2 class="panel-title" id="pinTitle">The Vault</h2>
+    <p class="pin-prompt" id="pinPrompt">Speak the secret.</p>
+    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="pinInput" autocomplete="off" aria-label="Four-digit PIN">
+    <p class="pin-error" id="pinError" role="alert" aria-live="polite"></p>
+    <div class="form-actions" style="justify-content:center;">
+      <button type="button" class="btn btn-primary" id="pinSubmit">Enter</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // =============================================================
@@ -1040,9 +1270,31 @@ const LINES = {
     'You let the {cat} exceed their bounds. Again.'
   ],
   achievementEarned: [
-    'A deed. {name}. The records remember.',
-    'Achievement: {name}. Earned. Continue.',
-    'You have done a thing worth remembering: {name}.'
+    'A deed. "{name}." The records remember.',
+    'You have earned a name: "{name}." Wear it.',
+    '"{name}." Carved into the wall of the cave. Forever.',
+    'A deed worth keeping: "{name}." The dragon takes note.'
+  ],
+  recurringRun: [
+    'The {cat} returns. €{n} as expected.',
+    'Your {cat} pays again. €{n}.',
+    'The cycle turns. {cat}: €{n}.',
+    'The {cat} comes round. €{n} added without fanfare.'
+  ],
+  lockedSpeak: [
+    'The vault is sealed. Speak the secret.',
+    'You cannot enter. Not yet. Prove yourself.',
+    'A pin is required. Four numbers stand between you and gold.'
+  ],
+  lockedWrong: [
+    'Lies. Try again.',
+    'No. That is not the word.',
+    'Wrong. The hoard remains sealed.'
+  ],
+  lockedRight: [
+    'Enter, keeper.',
+    'Correct. The vault opens.',
+    'You remembered. Good.'
   ]
 };
 
@@ -1067,13 +1319,15 @@ function defaultState() {
     recurring: [],
     budgets: {},
     achievements: {},
+    flags: {},
     dragonName: '',
     settings: {
       dragonVerbosity: 'always',
       reckoningMusic: 'on',
       musicVolume: 0.6,
       soundEffects: 'on',
-      pinHash: null
+      pinHash: null,
+      pinSalt: null
     }
   };
 }
@@ -1087,13 +1341,15 @@ function normalizeState(p) {
     recurring: Array.isArray(p.recurring) ? p.recurring : [],
     budgets: (p.budgets && typeof p.budgets === 'object') ? p.budgets : {},
     achievements: (p.achievements && typeof p.achievements === 'object') ? p.achievements : {},
+    flags: (p.flags && typeof p.flags === 'object') ? p.flags : {},
     dragonName: typeof p.dragonName === 'string' ? p.dragonName : '',
     settings: {
       dragonVerbosity: s.dragonVerbosity ?? 'always',
       reckoningMusic: s.reckoningMusic ?? 'on',
       musicVolume: typeof s.musicVolume === 'number' ? s.musicVolume : 0.6,
       soundEffects: s.soundEffects ?? 'on',
-      pinHash: typeof s.pinHash === 'string' ? s.pinHash : null
+      pinHash: typeof s.pinHash === 'string' ? s.pinHash : null,
+      pinSalt: typeof s.pinSalt === 'string' ? s.pinSalt : null
     }
   };
 }
@@ -1297,6 +1553,233 @@ function checkMilestonesAndBudgets(type, amount, categoryId, catName) {
   }
 }
 
+// ---------- Achievements ----------
+// Dragon-flavoured deeds. Each has a check() that reads from `state`.
+const ACHIEVEMENTS = [
+  {
+    id: 'first-tribute',
+    name: 'First Tribute',
+    desc: 'Brought the dragon its first coin.',
+    check: () => state.entries.some(e => e.type === 'gain')
+  },
+  {
+    id: 'first-theft',
+    name: 'First Theft',
+    desc: 'Watched a thief take from the pile.',
+    check: () => state.entries.some(e => e.type === 'loss')
+  },
+  {
+    id: 'glittering-heap',
+    name: 'A Glittering Heap',
+    desc: 'The hoard crossed €100.',
+    check: () => calcHoard() >= 100
+  },
+  {
+    id: 'worthy-pile',
+    name: 'A Worthy Pile',
+    desc: 'The hoard crossed €1,000.',
+    check: () => calcHoard() >= 1000
+  },
+  {
+    id: 'true-wealth',
+    name: 'True Wealth',
+    desc: 'The hoard crossed €10,000.',
+    check: () => calcHoard() >= 10000
+  },
+  {
+    id: 'dragons-wealth',
+    name: "A Dragon's Wealth",
+    desc: 'The hoard crossed €100,000.',
+    check: () => calcHoard() >= 100000
+  },
+  {
+    id: 'mountain-of-gold',
+    name: 'A Mountain of Gold',
+    desc: 'The hoard crossed a quarter of a million.',
+    check: () => calcHoard() >= 250000
+  },
+  {
+    id: 'scribe-awakens',
+    name: 'The Scribe Awakens',
+    desc: 'Ten entries written into the records.',
+    check: () => state.entries.length >= 10
+  },
+  {
+    id: 'ledger-master',
+    name: 'Master of the Ledger',
+    desc: 'One hundred entries written.',
+    check: () => state.entries.length >= 100
+  },
+  {
+    id: 'survived-reckoning',
+    name: 'Survived a Reckoning',
+    desc: 'Ended a past month with the hoard heavier than it began.',
+    check: () => {
+      const months = new Set(state.entries.map(e => e.date.slice(0, 7)));
+      const now = new Date();
+      const thisYm = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      for (const ym of months) {
+        if (ym >= thisYm) continue;
+        const net = state.entries
+          .filter(e => e.date.startsWith(ym))
+          .reduce((s, e) => s + (e.type === 'gain' ? e.amount : -e.amount), 0);
+        if (net > 0) return true;
+      }
+      return false;
+    }
+  },
+  {
+    id: 'three-moons-gain',
+    name: 'Three Moons of Gain',
+    desc: 'Three consecutive months ending in the green.',
+    check: () => detectMonthStreak() === 'positive'
+  },
+  {
+    id: 'long-watch',
+    name: 'The Long Watch',
+    desc: 'Logged something in six different months.',
+    check: () => new Set(state.entries.map(e => e.date.slice(0, 7))).size >= 6
+  },
+  {
+    id: 'named-the-beast',
+    name: 'Named the Beast',
+    desc: 'Gave the dragon a name.',
+    check: () => !!(state.dragonName && state.dragonName.trim())
+  },
+  {
+    id: 'sealed-the-scroll',
+    name: 'Sealed the Scroll',
+    desc: 'Exported a backup of the hoard.',
+    check: () => !!(state.flags && state.flags.exported)
+  },
+  {
+    id: 'wards-set',
+    name: 'Wards Set',
+    desc: 'Bound the vault behind a secret.',
+    check: () => !!(state.settings && state.settings.pinHash)
+  },
+  {
+    id: 'the-bounds',
+    name: 'The Bounds',
+    desc: 'Set a monthly limit on a thief.',
+    check: () => Object.keys(state.budgets || {}).length > 0
+  },
+  {
+    id: 'disciplined-moon',
+    name: 'A Disciplined Moon',
+    desc: 'Finished a past month with every limit honoured.',
+    check: () => {
+      const budgets = state.budgets || {};
+      const setBudgets = Object.entries(budgets).filter(([, v]) => v > 0);
+      if (setBudgets.length === 0) return false;
+      const months = new Set(state.entries.map(e => e.date.slice(0, 7)));
+      const now = new Date();
+      const thisYm = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      for (const ym of months) {
+        if (ym >= thisYm) continue;
+        const ok = setBudgets.every(([catId, limit]) => {
+          const spent = state.entries
+            .filter(e => e.type === 'loss' && e.category === catId && e.date.startsWith(ym))
+            .reduce((s, e) => s + e.amount, 0);
+          return spent <= limit;
+        });
+        if (ok) return true;
+      }
+      return false;
+    }
+  },
+  {
+    id: 'cycle-binder',
+    name: 'Binder of the Cycle',
+    desc: 'Set a recurring tribute or tax.',
+    check: () => (state.recurring || []).length > 0
+  },
+  {
+    id: 'empty-cave',
+    name: 'The Empty Cave',
+    desc: 'The hoard fell to zero. The dragon remembers.',
+    check: () => state.entries.length > 0 && calcHoard() <= 0
+  },
+  {
+    id: 'risen-from-ash',
+    name: 'Risen from Ash',
+    desc: 'Brought the hoard back to positive after it ran dry.',
+    check: () => {
+      if (calcHoard() <= 0) return false;
+      const sorted = [...state.entries].sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        return a.id.localeCompare(b.id);
+      });
+      let running = 0;
+      let dipped = false;
+      for (const e of sorted) {
+        running += e.type === 'gain' ? e.amount : -e.amount;
+        if (running <= 0) dipped = true;
+      }
+      return dipped && calcHoard() > 0;
+    }
+  },
+  {
+    id: 'year-and-a-day',
+    name: 'A Year and a Day',
+    desc: 'Kept the records across a full year and one day.',
+    check: () => {
+      if (state.entries.length < 2) return false;
+      const dates = state.entries
+        .map(e => new Date(e.date + 'T00:00:00').getTime())
+        .filter(t => Number.isFinite(t));
+      if (dates.length < 2) return false;
+      const span = (Math.max(...dates) - Math.min(...dates)) / 86400000;
+      return span >= 366;
+    }
+  },
+  {
+    id: 'pyromancer',
+    name: 'The Pyromancer',
+    desc: 'Erased all records and began anew.',
+    check: () => !!(state.flags && state.flags.everCleared)
+  }
+];
+
+const achievementUnlockQueue = [];
+function getAchievementById(id) { return ACHIEVEMENTS.find(a => a.id === id); }
+
+function checkAchievements({ silent = false } = {}) {
+  const today = todayISO();
+  const newlyEarned = [];
+  ACHIEVEMENTS.forEach(a => {
+    if (state.achievements[a.id]) return;
+    let earned = false;
+    try { earned = !!a.check(); } catch { earned = false; }
+    if (earned) {
+      state.achievements[a.id] = today;
+      newlyEarned.push(a);
+    }
+  });
+  if (newlyEarned.length === 0) return;
+  saveState();
+  if (silent) return;
+  // Queue announcements so multiple at once don't stomp each other
+  newlyEarned.forEach(a => achievementUnlockQueue.push(a));
+  drainAchievementQueue();
+}
+
+let achievementAnnouncing = false;
+function drainAchievementQueue() {
+  if (achievementAnnouncing) return;
+  const next = achievementUnlockQueue.shift();
+  if (!next) return;
+  achievementAnnouncing = true;
+  setTimeout(() => {
+    playChime();
+    speakLine(pick(LINES.achievementEarned).replace('{name}', next.name));
+    setTimeout(() => {
+      achievementAnnouncing = false;
+      drainAchievementQueue();
+    }, 3800);
+  }, 1200);
+}
+
 // ---------- Dragon voice ----------
 function speakLine(line) {
   document.getElementById('dragonText').textContent = line;
@@ -1461,6 +1944,7 @@ function deleteEntry(id) {
   saveState();
   render();
   announceAction('deleted');
+  checkAchievements({ silent: true });
 }
 
 // ---------- Panels (modal management) ----------
@@ -1604,6 +2088,7 @@ document.getElementById('entryForm').addEventListener('submit', (e) => {
       announceAction(currentEntryType, { amount: rounded, catName });
       checkMilestonesAndBudgets(currentEntryType, rounded, category, catName);
     }
+    checkAchievements();
   }, 120);
 });
 
@@ -2008,6 +2493,7 @@ function renderBudgetEditor() {
       if (Number.isFinite(v) && v > 0) state.budgets[id] = Math.round(v * 100) / 100;
       else delete state.budgets[id];
       saveState();
+      checkAchievements();
     });
   });
 }
@@ -2021,6 +2507,8 @@ function openSettings(openerEl) {
   document.getElementById('settingMusicVolume').value = volPct;
   document.getElementById('musicVolumeReadout').textContent = `${volPct}%`;
   renderBudgetEditor();
+  renderRecurringInSettings();
+  updatePinButtons();
   openPanel('settingsPanel', openerEl);
 }
 
@@ -2031,6 +2519,7 @@ document.getElementById('settingDragonName').addEventListener('input', (e) => {
   state.dragonName = e.target.value.slice(0, 40);
   saveState();
   render();
+  checkAchievements();
 });
 
 document.getElementById('settingVerbosity').addEventListener('change', (e) => {
@@ -2062,10 +2551,13 @@ document.getElementById('settingSfx').addEventListener('change', (e) => {
 document.getElementById('btnClearData').addEventListener('click', () => {
   if (confirm('Erase the hoard? Every record will be lost. This cannot be undone.')) {
     state.entries = [];
+    state.flags = state.flags || {};
+    state.flags.everCleared = true;
     saveState();
     render();
     closePanel('settingsPanel');
     setTimeout(() => announceAction('cleared'), 200);
+    checkAchievements({ silent: true });
   }
 });
 
@@ -2095,61 +2587,441 @@ if (navigator.storage && navigator.storage.persist) {
   }).catch(() => {});
 }
 
-// ---------- Export / Import (manual backup) ----------
-function exportHoard() {
-  const payload = {
-    app: 'dragons-hoard',
-    version: 1,
+// ---------- Export / Import (manual backup, optional encryption) ----------
+const ENCRYPTED_FORMAT = 'dragons-hoard-encrypted-v1';
+const PLAINTEXT_FORMAT = 'dragons-hoard';
+
+function b64FromBytes(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s);
+}
+function bytesFromB64(b64) {
+  const s = atob(b64);
+  const out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+  return out;
+}
+
+async function deriveKey(password, saltBytes) {
+  const enc = new TextEncoder();
+  const material = await crypto.subtle.importKey(
+    'raw', enc.encode(password), { name: 'PBKDF2' }, false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: saltBytes, iterations: 200000, hash: 'SHA-256' },
+    material,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptPayload(plainObj, password) {
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(password, salt);
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(plainObj)))
+  );
+  return {
+    format: ENCRYPTED_FORMAT,
     exportedAt: new Date().toISOString(),
-    state
+    salt: b64FromBytes(salt),
+    iv: b64FromBytes(iv),
+    ciphertext: b64FromBytes(ciphertext)
   };
+}
+
+async function decryptPayload(encObj, password) {
+  const salt = bytesFromB64(encObj.salt);
+  const iv = bytesFromB64(encObj.iv);
+  const ciphertext = bytesFromB64(encObj.ciphertext);
+  const key = await deriveKey(password, salt);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+async function exportHoard() {
+  const usePassword = confirm(
+    'Encrypt the backup with a password?\n\n' +
+    'OK = encrypted (you will be asked for a password).\n' +
+    'Cancel = plain JSON (readable by anyone with the file).'
+  );
+  let password = null;
+  if (usePassword) {
+    password = prompt('Choose a password for this backup. You will need it to import.');
+    if (password == null) return;
+    if (password.length < 4) { alert('Password too short. Use at least 4 characters.'); return; }
+  }
+
+  let payload;
+  if (password) {
+    const inner = { app: PLAINTEXT_FORMAT, version: 1, state };
+    payload = await encryptPayload(inner, password);
+  } else {
+    payload = {
+      app: PLAINTEXT_FORMAT,
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      state
+    };
+  }
+
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   const stamp = todayISO();
   a.href = url;
-  a.download = `dragons-hoard-backup-${stamp}.json`;
+  a.download = password
+    ? `dragons-hoard-encrypted-${stamp}.json`
+    : `dragons-hoard-backup-${stamp}.json`;
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
-  speakLine('The hoard is sealed in a scroll. Guard it well.');
+
+  state.flags = state.flags || {};
+  state.flags.exported = true;
+  saveState();
+  checkAchievements();
+  speakLine(password
+    ? 'The scroll is sealed with words you must remember.'
+    : 'The hoard is sealed in a scroll. Guard it well.');
 }
 
-function importHoardFromFile(file) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    let payload;
-    try { payload = JSON.parse(String(reader.result)); }
-    catch { alert('That scroll is unreadable. Import cancelled.'); return; }
+async function importHoardFromFile(file) {
+  const text = await file.text().catch(() => null);
+  if (text == null) { alert('The scroll could not be read.'); return; }
+  let payload;
+  try { payload = JSON.parse(text); }
+  catch { alert('That scroll is unreadable. Import cancelled.'); return; }
 
-    const candidate = payload && payload.state ? payload.state : payload;
-    if (!candidate || !Array.isArray(candidate.entries)) {
-      alert('That scroll holds no hoard. Import cancelled.');
+  let restored;
+  if (payload && payload.format === ENCRYPTED_FORMAT) {
+    const password = prompt('This scroll is sealed. Enter its password.');
+    if (password == null) return;
+    try {
+      const inner = await decryptPayload(payload, password);
+      restored = inner && inner.state ? inner.state : inner;
+    } catch (e) {
+      alert('Wrong password, or the scroll is corrupted.');
       return;
     }
-    const incoming = normalizeState(candidate);
-    const msg = state.entries.length === 0
-      ? `Import ${incoming.entries.length} entries into the hoard?`
-      : `Replace your current ${state.entries.length} entries with ${incoming.entries.length} from the backup? This cannot be undone.`;
-    if (!confirm(msg)) return;
+  } else {
+    restored = payload && payload.state ? payload.state : payload;
+  }
+  if (!restored || !Array.isArray(restored.entries)) {
+    alert('That scroll holds no hoard. Import cancelled.');
+    return;
+  }
+  const incoming = normalizeState(restored);
+  const msg = state.entries.length === 0
+    ? `Import ${incoming.entries.length} entries into the hoard?`
+    : `Replace your current ${state.entries.length} entries with ${incoming.entries.length} from the backup? This cannot be undone.`;
+  if (!confirm(msg)) return;
 
-    state = incoming;
-    saveState();
-    render();
-    speakLine('The scroll is read. The hoard remembers.');
-  };
-  reader.onerror = () => alert('The scroll could not be read.');
-  reader.readAsText(file);
+  state = incoming;
+  saveState();
+  render();
+  checkAchievements({ silent: true });
+  speakLine('The scroll is read. The hoard remembers.');
 }
 
-document.getElementById('btnExport').addEventListener('click', exportHoard);
+document.getElementById('btnExport').addEventListener('click', () => { exportHoard(); });
 document.getElementById('importFile').addEventListener('change', (e) => {
   const file = e.target.files && e.target.files[0];
   if (file) importHoardFromFile(file);
   e.target.value = '';
 });
 
+// ---------- Achievements panel ----------
+function renderAchievementsPanel() {
+  const body = document.getElementById('achievementsBody');
+  const earnedCount = ACHIEVEMENTS.filter(a => state.achievements[a.id]).length;
+  const total = ACHIEVEMENTS.length;
+  const html = [
+    `<p class="about-text" style="margin-bottom:16px;">${earnedCount} of ${total} deeds carved.</p>`,
+    ...ACHIEVEMENTS.map(a => {
+      const earnedDate = state.achievements[a.id];
+      const earned = !!earnedDate;
+      return `
+        <div class="achievement ${earned ? 'earned' : ''}">
+          <div class="achievement-icon" aria-hidden="true">${earned ? '✦' : '·'}</div>
+          <div>
+            <div class="achievement-name">${escapeHtml(a.name)}</div>
+            <div class="achievement-desc">${escapeHtml(a.desc)}</div>
+          </div>
+          <div class="achievement-date">${earned ? fmtDateFull(earnedDate) : ''}</div>
+        </div>
+      `;
+    })
+  ].join('');
+  body.innerHTML = html;
+}
+
+document.getElementById('btnAchievements').addEventListener('click', (e) => {
+  renderAchievementsPanel();
+  openPanel('achievementsPanel', e.currentTarget);
+});
+document.getElementById('achievementsClose').addEventListener('click', () => closePanel('achievementsPanel'));
+
+// ---------- Recurring entries ----------
+function addMonthsToISO(iso, months) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(y, m - 1 + months, d);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+}
+function addDaysToISO(iso, days) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + days);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+}
+function advanceCadence(iso, cadence) {
+  if (cadence === 'weekly') return addDaysToISO(iso, 7);
+  return addMonthsToISO(iso, 1);
+}
+
+function runDueRecurring() {
+  const today = todayISO();
+  let ranAny = false;
+  const announces = [];
+  (state.recurring || []).forEach(r => {
+    if (!r.active) return;
+    let guard = 0;
+    while (r.nextDate && r.nextDate <= today && guard < 120) {
+      state.entries.push({
+        id: uid(),
+        type: r.type,
+        amount: r.amount,
+        category: r.category,
+        note: r.note || '',
+        date: r.nextDate
+      });
+      announces.push({ catName: categoryName(r.type, r.category), amount: r.amount });
+      r.nextDate = advanceCadence(r.nextDate, r.cadence);
+      ranAny = true;
+      guard++;
+    }
+  });
+  if (ranAny) {
+    saveState();
+    render();
+    if (state.settings.dragonVerbosity !== 'quiet') {
+      const first = announces[announces.length - 1];
+      setTimeout(() => speakLine(
+        pick(LINES.recurringRun)
+          .replace('{cat}', first.catName)
+          .replace('{n}', fmtMoney(first.amount))
+      ), 1800);
+    }
+    checkAchievements({ silent: true });
+  }
+}
+
+function renderRecurringInSettings() {
+  const root = document.getElementById('recurringList');
+  if (!root) return;
+  root.innerHTML = '';
+  if ((state.recurring || []).length === 0) {
+    root.innerHTML = '<div class="recurring-empty">Nothing scheduled. The dragon waits for cycles to be bound.</div>';
+    return;
+  }
+  state.recurring.forEach(r => {
+    const cat = categoryName(r.type, r.category);
+    const cadenceLabel = r.cadence === 'weekly' ? 'weekly' : 'monthly';
+    const sign = r.type === 'gain' ? '+' : '−';
+    const row = document.createElement('div');
+    row.className = 'recurring-row';
+    row.innerHTML = `
+      <div class="recurring-row-main">
+        <span class="recurring-row-name">${escapeHtml(cat)} ${sign}€${fmtMoney(r.amount)}</span>
+        <span class="recurring-row-meta">${escapeHtml(cadenceLabel)} · next ${escapeHtml(fmtDateFull(r.nextDate))}${r.note ? ' · ' + escapeHtml(r.note) : ''}</span>
+      </div>
+      <div class="recurring-row-actions">
+        <button class="btn-link" type="button" data-recurring-remove="${r.id}">Remove</button>
+      </div>
+    `;
+    root.appendChild(row);
+  });
+  root.querySelectorAll('[data-recurring-remove]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.recurringRemove;
+      state.recurring = state.recurring.filter(r => r.id !== id);
+      saveState();
+      renderRecurringInSettings();
+    });
+  });
+}
+
+function openRecurringForm(openerEl) {
+  document.getElementById('recurringAmount').value = '';
+  document.getElementById('recurringNote').value = '';
+  document.getElementById('recurringCadence').value = 'monthly';
+  document.getElementById('recurringStart').value = todayISO();
+  document.getElementById('recurringType').value = 'gain';
+  populateCategorySelect(document.getElementById('recurringCategory'), 'gain');
+  openPanel('recurringPanel', openerEl);
+}
+
+document.getElementById('btnAddRecurring').addEventListener('click', (e) => openRecurringForm(e.currentTarget));
+document.getElementById('recurringClose').addEventListener('click', () => closePanel('recurringPanel'));
+document.getElementById('recurringCancel2').addEventListener('click', () => closePanel('recurringPanel'));
+document.getElementById('recurringType').addEventListener('change', (e) => {
+  populateCategorySelect(document.getElementById('recurringCategory'), e.target.value);
+});
+document.getElementById('recurringForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const type = document.getElementById('recurringType').value;
+  const category = document.getElementById('recurringCategory').value;
+  const amount = parseFloat(document.getElementById('recurringAmount').value);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    document.getElementById('recurringAmount').focus();
+    return;
+  }
+  const note = document.getElementById('recurringNote').value.trim();
+  const cadence = document.getElementById('recurringCadence').value;
+  const nextDate = document.getElementById('recurringStart').value || todayISO();
+
+  state.recurring = state.recurring || [];
+  state.recurring.push({
+    id: uid(),
+    type,
+    category,
+    amount: Math.round(amount * 100) / 100,
+    note,
+    cadence,
+    nextDate,
+    active: true
+  });
+  saveState();
+  renderRecurringInSettings();
+  checkAchievements();
+  closePanel('recurringPanel');
+  playChime();
+});
+
+// ---------- PIN lock ----------
+async function hashPin(pin, saltB64) {
+  const enc = new TextEncoder();
+  const salt = bytesFromB64(saltB64);
+  const material = await crypto.subtle.importKey(
+    'raw', enc.encode(pin), { name: 'PBKDF2' }, false, ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 150000, hash: 'SHA-256' },
+    material,
+    256
+  );
+  return b64FromBytes(new Uint8Array(bits));
+}
+
+function randomSaltB64() {
+  return b64FromBytes(crypto.getRandomValues(new Uint8Array(16)));
+}
+
+async function setPin() {
+  const a = prompt('Choose a 4-digit PIN. Forget it and the hoard is forever sealed (unless you import a backup).');
+  if (a == null) return;
+  if (!/^\d{4}$/.test(a)) { alert('PIN must be exactly 4 digits.'); return; }
+  const b = prompt('Confirm the PIN.');
+  if (b == null) return;
+  if (a !== b) { alert('The PINs did not match.'); return; }
+  const salt = randomSaltB64();
+  const hash = await hashPin(a, salt);
+  state.settings.pinSalt = salt;
+  state.settings.pinHash = hash;
+  saveState();
+  updatePinButtons();
+  checkAchievements();
+  speakLine('The vault is bound. Remember the secret.');
+}
+
+async function removePin() {
+  if (!state.settings.pinHash) return;
+  const current = prompt('Confirm by entering the current PIN.');
+  if (current == null) return;
+  const hash = await hashPin(current, state.settings.pinSalt);
+  if (hash !== state.settings.pinHash) {
+    alert('Wrong PIN. The vault remains bound.');
+    return;
+  }
+  state.settings.pinHash = null;
+  state.settings.pinSalt = null;
+  saveState();
+  updatePinButtons();
+  speakLine('The seal is broken. Anyone may enter.');
+}
+
+function updatePinButtons() {
+  const set = document.getElementById('btnSetPin');
+  const rem = document.getElementById('btnRemovePin');
+  if (state.settings.pinHash) {
+    set.textContent = 'Change PIN';
+    rem.style.display = '';
+  } else {
+    set.textContent = 'Set PIN';
+    rem.style.display = 'none';
+  }
+}
+
+document.getElementById('btnSetPin').addEventListener('click', () => setPin());
+document.getElementById('btnRemovePin').addEventListener('click', () => removePin());
+
+function checkPinAndUnlock() {
+  return new Promise((resolve) => {
+    if (!state.settings.pinHash) { resolve(); return; }
+    const overlay = document.getElementById('pinOverlay');
+    const card = overlay.querySelector('.pin-card');
+    const input = document.getElementById('pinInput');
+    const submit = document.getElementById('pinSubmit');
+    const errorEl = document.getElementById('pinError');
+    const promptEl = document.getElementById('pinPrompt');
+    overlay.style.display = 'flex';
+    overlay.setAttribute('aria-hidden', 'false');
+    document.getElementById('main').setAttribute('inert', '');
+    document.getElementById('main').setAttribute('aria-hidden', 'true');
+    promptEl.textContent = pick(LINES.lockedSpeak);
+    errorEl.textContent = '';
+    input.value = '';
+    setTimeout(() => input.focus(), 50);
+
+    async function attempt() {
+      const v = input.value;
+      if (!/^\d{4}$/.test(v)) {
+        errorEl.textContent = 'Four digits.';
+        return;
+      }
+      const hash = await hashPin(v, state.settings.pinSalt);
+      if (hash === state.settings.pinHash) {
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
+        document.getElementById('main').removeAttribute('inert');
+        document.getElementById('main').removeAttribute('aria-hidden');
+        input.removeEventListener('keydown', onKey);
+        submit.removeEventListener('click', attempt);
+        speakLine(pick(LINES.lockedRight));
+        resolve();
+      } else {
+        errorEl.textContent = pick(LINES.lockedWrong);
+        card.classList.remove('shake');
+        void card.offsetWidth;
+        card.classList.add('shake');
+        input.value = '';
+        input.focus();
+      }
+    }
+    function onKey(e) {
+      if (e.key === 'Enter') { e.preventDefault(); attempt(); }
+    }
+    input.addEventListener('keydown', onKey);
+    submit.addEventListener('click', attempt);
+  });
+}
+
 // ---------- Init ----------
+// Run any recurring entries that came due while the app was closed
+runDueRecurring();
 render();
 // Initialise the milestone tracker to the current hoard so existing users
 // don't get spammed with milestone lines for thresholds they crossed long ago.
@@ -2157,17 +3029,27 @@ if (getLastSeenMilestone() === 0) {
   const reached = highestMilestoneReached(calcHoard());
   if (reached) setLastSeenMilestone(reached);
 }
-// Slight delay so VoiceOver settles on the page before the live region speaks
-setTimeout(() => {
-  announceAction('open');
-  // Streak follow-up (~3s after the opening line)
+// Silent first pass so users with pre-existing data don't get a flood of
+// achievement announcements for things they qualified for before this feature.
+const hadAnyAchievement = Object.keys(state.achievements).length > 0;
+checkAchievements({ silent: !hadAnyAchievement });
+
+// If a PIN is set, gate the opening greeting behind the unlock.
+async function startApp() {
+  if (state.settings.pinHash) {
+    await checkPinAndUnlock();
+  }
   setTimeout(() => {
-    if (state.settings.dragonVerbosity === 'quiet') return;
-    const streak = detectMonthStreak();
-    if (streak === 'positive') speakLine(pick(LINES.streakPositive));
-    else if (streak === 'negative') speakLine(pick(LINES.streakNegative));
-  }, 4200);
-}, 400);
+    announceAction('open');
+    setTimeout(() => {
+      if (state.settings.dragonVerbosity === 'quiet') return;
+      const streak = detectMonthStreak();
+      if (streak === 'positive') speakLine(pick(LINES.streakPositive));
+      else if (streak === 'negative') speakLine(pick(LINES.streakNegative));
+    }, 4200);
+  }, 400);
+}
+startApp();
 </script>
 
 </body>
