@@ -430,14 +430,23 @@ color: var(--gold);
 display: flex;
 align-items: center;
 justify-content: space-between;
+gap: 12px;
+}
+details.settings-group > summary > span:first-child {
+flex: 1; /* fills the row so VoiceOver's focus rect spans the whole summary */
 }
 details.settings-group > summary::-webkit-details-marker { display: none; }
-details.settings-group > summary::after {
-content: '▾';
+details.settings-group > summary .summary-icon {
 color: var(--bone-dim);
 transition: transform 0.18s ease;
+display: inline-block;
 }
-details.settings-group[open] > summary::after { transform: rotate(180deg); }
+details.settings-group[open] > summary .summary-icon { transform: rotate(180deg); }
+details.settings-group > summary:focus,
+details.settings-group > summary:focus-visible {
+outline: 2px solid var(--gold);
+outline-offset: -2px;
+}
 details.settings-group > .setting-group { padding: 0 8px 12px; }
 
 /* Achievements list */
@@ -993,7 +1002,7 @@ user-select: none;
     </div>
 
 <details class="settings-group" open>
-  <summary>Voice</summary>
+  <summary><span>Voice</span><span class="summary-icon" aria-hidden="true">▾</span></summary>
   <div class="setting-group">
     <label class="field-label" for="settingVerbosity">Dragon's Voice</label>
     <select id="settingVerbosity">
@@ -1009,7 +1018,13 @@ user-select: none;
 </details>
 
 <details class="settings-group">
-  <summary>Sound</summary>
+  <summary><span>Sound</span><span class="summary-icon" aria-hidden="true">▾</span></summary>
+  <div class="setting-group">
+    <div class="form-actions" style="margin-bottom:8px;">
+      <button type="button" class="btn" id="btnTestSound">Test sound</button>
+    </div>
+    <p class="about-text" id="soundDiag" style="margin-bottom:4px;color:var(--bone-dim);font-size:0.84rem;"></p>
+  </div>
   <div class="setting-group">
     <label class="field-label" for="settingMusic">Music</label>
     <select id="settingMusic">
@@ -1041,7 +1056,7 @@ user-select: none;
 </details>
 
 <details class="settings-group">
-  <summary>Money</summary>
+  <summary><span>Money</span><span class="summary-icon" aria-hidden="true">▾</span></summary>
   <div class="setting-group">
     <h3 class="section-h" style="margin-bottom: 8px;">Monthly limits</h3>
     <p class="about-text" style="margin-bottom: 12px;">
@@ -1062,7 +1077,7 @@ user-select: none;
 </details>
 
 <details class="settings-group">
-  <summary>Records</summary>
+  <summary><span>Records</span><span class="summary-icon" aria-hidden="true">▾</span></summary>
   <div class="setting-group">
     <h3 class="section-h" style="margin-bottom: 8px;">Deeds of the Hoard</h3>
     <p class="about-text" style="margin-bottom: 12px;">
@@ -1086,7 +1101,7 @@ user-select: none;
 </details>
 
 <details class="settings-group">
-  <summary>The Vault</summary>
+  <summary><span>The Vault</span><span class="summary-icon" aria-hidden="true">▾</span></summary>
   <div class="setting-group">
     <h3 class="section-h" style="margin-bottom: 8px;">The Vault Seal</h3>
     <p class="about-text" style="margin-bottom: 12px;">
@@ -1100,7 +1115,7 @@ user-select: none;
 </details>
 
 <details class="settings-group">
-  <summary>About</summary>
+  <summary><span>About</span><span class="summary-icon" aria-hidden="true">▾</span></summary>
   <div class="setting-group">
     <p class="about-text">
       The Dragon's Hoard is a budgeting ledger watched over by a slow, possessive dragon. All data is stored locally on this device. No accounts. No servers. For best durability on iPhone, add the app to your Home Screen.
@@ -2794,6 +2809,52 @@ document.getElementById('settingSfx').addEventListener('change', (e) => {
   state.settings.soundEffects = e.target.value;
   saveState();
 });
+
+// Test-sound diagnostic. Reports the audio graph state so we can tell
+// whether silence is "context never created", "context suspended",
+// "settings off", or genuinely broken playback.
+function runSoundTest() {
+  const diag = document.getElementById('soundDiag');
+  if (!diag) return;
+  const ctx = ensureAudioGraph();
+  const lines = [];
+  lines.push(`music setting: ${state.settings.music}`);
+  lines.push(`sfx setting: ${state.settings.soundEffects}`);
+  lines.push(`music vol: ${Math.round((state.settings.musicVolume ?? 0) * 100)}%`);
+  lines.push(`sfx vol: ${Math.round((state.settings.sfxVolume ?? 0) * 100)}%`);
+  if (!ctx) {
+    lines.push('AudioContext: unavailable');
+  } else {
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    lines.push(`AudioContext: ${ctx.state}`);
+  }
+  lines.push(`music element paused: ${reckoningAudio.paused}, readyState: ${reckoningAudio.readyState}`);
+  // Force-play a chime and swoosh regardless of the setting so the user can
+  // tell whether the graph itself is dead.
+  const sfxWas = state.settings.soundEffects;
+  state.settings.soundEffects = 'on';
+  try { playSwoosh(); } catch (e) { lines.push(`swoosh threw: ${e.message}`); }
+  setTimeout(() => {
+    try { playChime(); } catch (e) { lines.push(`chime threw: ${e.message}`); }
+  }, 320);
+  setTimeout(() => {
+    try {
+      reckoningAudio.play().then(() => {
+        lines.push('music element: play() resolved');
+        diag.textContent = lines.join(' · ');
+      }).catch(err => {
+        lines.push(`music element play() rejected: ${err.name}`);
+        diag.textContent = lines.join(' · ');
+      });
+    } catch (e) {
+      lines.push(`music element play() threw: ${e.message}`);
+      diag.textContent = lines.join(' · ');
+    }
+  }, 700);
+  diag.textContent = lines.join(' · ');
+  state.settings.soundEffects = sfxWas;
+}
+document.getElementById('btnTestSound').addEventListener('click', runSoundTest);
 
 document.getElementById('btnClearData').addEventListener('click', () => {
   if (confirm('Erase the hoard? Every record will be lost. This cannot be undone.')) {
