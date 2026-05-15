@@ -409,32 +409,6 @@ min-width: 36px;
 text-align: right;
 }
 
-/* Install instructions list */
-ol.install-steps {
-margin: 8px 0 8px 20px;
-color: var(--bone-muted);
-line-height: 1.55;
-}
-ol.install-steps li { margin-bottom: 4px; }
-details.voice-help > summary {
-list-style: none;
-cursor: pointer;
-font-family: 'Cinzel', serif;
-font-size: 0.8rem;
-letter-spacing: 0.06em;
-text-transform: uppercase;
-color: var(--bone-muted);
-display: flex;
-gap: 8px;
-align-items: center;
-}
-details.voice-help > summary::-webkit-details-marker { display: none; }
-details.voice-help > summary .summary-icon {
-color: var(--bone-dim);
-transition: transform 0.18s ease;
-}
-details.voice-help[open] > summary .summary-icon { transform: rotate(180deg); }
-
 /* Collapsible Settings sections */
 details.settings-group {
 border-top: 1px solid var(--border-soft);
@@ -1041,39 +1015,6 @@ user-select: none;
     <label class="field-label" for="settingDragonName">Name your dragon</label>
     <input type="text" id="settingDragonName" maxlength="40" placeholder="The Dragon" autocomplete="off">
   </div>
-  <div class="setting-group">
-    <label class="field-label" for="settingDragonVoice">Dragon voice (out loud)</label>
-    <select id="settingDragonVoice">
-      <option value="off">Off — text only</option>
-      <option value="on">On — speak the lines aloud</option>
-    </select>
-    <p class="about-text" id="dragonVoiceStatus" style="margin-top:8px;font-size:0.84rem;color:var(--bone-dim);"></p>
-    <label class="field-label" for="settingVoiceName" style="margin-top:10px;display:block;">Choose voice</label>
-    <select id="settingVoiceName">
-      <option value="">Auto (recommend Bad News)</option>
-    </select>
-    <div class="form-actions" style="margin-top:8px;">
-      <button type="button" class="btn" id="btnTestVoice">Test voice</button>
-      <button type="button" class="btn" id="btnListVoices">List voices</button>
-    </div>
-    <details class="voice-help" style="margin-top:14px;">
-      <summary><span>About the voices</span><span class="summary-icon" aria-hidden="true">▾</span></summary>
-      <div class="setting-group" style="padding-top:8px;">
-        <p class="about-text">
-          Apple's deeper voices like <strong>Rocko</strong> and <strong>Rocco</strong> exist on iOS but Apple does <em>not</em> expose them to web apps — they only work in Siri, VoiceOver, and Spoken Content. From this app the best dragon-sounding choices are:
-        </p>
-        <ol class="install-steps">
-          <li><strong>Bad News</strong> — slow, ominous, default pick.</li>
-          <li><strong>Cellos</strong> — sings the lines in deep cello tones.</li>
-          <li><strong>Trinoids</strong> / <strong>Zarvox</strong> — robotic, otherworldly.</li>
-          <li><strong>Daniel</strong> — deep British male, the most "normal" fallback.</li>
-        </ol>
-        <p class="about-text" style="margin-top:8px;">
-          Use the <strong>Choose voice</strong> dropdown above to override the default pick.
-        </p>
-      </div>
-    </details>
-  </div>
 </details>
 
 <details class="settings-group">
@@ -1476,8 +1417,6 @@ function defaultState() {
       musicVolume: 0.6,
       soundEffects: 'on',
       sfxVolume: 0.7,
-      dragonVoice: 'off',
-      preferredVoiceName: '',
       pinHash: null,
       pinSalt: null
     }
@@ -1511,8 +1450,6 @@ function normalizeState(p) {
       musicVolume: typeof s.musicVolume === 'number' ? s.musicVolume : 0.6,
       soundEffects: s.soundEffects ?? 'on',
       sfxVolume: typeof s.sfxVolume === 'number' ? s.sfxVolume : 0.7,
-      dragonVoice: s.dragonVoice ?? 'off',
-      preferredVoiceName: typeof s.preferredVoiceName === 'string' ? s.preferredVoiceName : '',
       pinHash: typeof s.pinHash === 'string' ? s.pinHash : null,
       pinSalt: typeof s.pinSalt === 'string' ? s.pinSalt : null
     }
@@ -1993,127 +1930,8 @@ function drainAchievementQueue() {
 }
 
 // ---------- Dragon voice ----------
-// On-screen text always renders. The optional out-loud TTS is in
-// speakLineAloud(), wired through speechSynthesis below.
 function speakLine(line) {
   document.getElementById('dragonText').textContent = line;
-  speakLineAloud(line);
-}
-
-// ---------- Web Speech (out-loud dragon voice) ----------
-let availableVoices = [];
-let cachedDragonVoice = null;
-const PREFERRED_VOICES = [
-  // Best dragon-sounding voices iOS Safari actually exposes to web pages.
-  'Bad News', 'Cellos', 'Trinoids', 'Zarvox', 'Organ',
-  // Rocko / Rocco are blocked by iOS from web pages but left here in case
-  // a future iOS or another browser exposes them.
-  'Rocko', 'Rocco',
-  // Realistic deep English voices — graceful fallback.
-  'Daniel', 'Arthur', 'Aaron', 'Eddy', 'Reed', 'Albert', 'Ralph', 'Fred'
-];
-
-function refreshVoices() {
-  if (!('speechSynthesis' in window)) return;
-  availableVoices = speechSynthesis.getVoices() || [];
-  cachedDragonVoice = null;
-  updateDragonVoiceStatus();
-  if (document.getElementById('settingVoiceName')) populateVoicePicker();
-}
-if ('speechSynthesis' in window) {
-  // First call typically returns [] on iOS; the list lands later.
-  try { speechSynthesis.addEventListener('voiceschanged', refreshVoices); } catch {}
-  refreshVoices();
-}
-
-function pickDragonVoice() {
-  if (cachedDragonVoice) return cachedDragonVoice;
-  const lower = availableVoices.map(v => ({ v, name: (v.name || '').toLowerCase() }));
-  // Honour an explicit user choice first.
-  const wantedName = (state.settings.preferredVoiceName || '').toLowerCase();
-  if (wantedName) {
-    const explicit = lower.find(({ name }) => name === wantedName);
-    if (explicit) { cachedDragonVoice = explicit.v; return explicit.v; }
-  }
-  // First pass: exact case-insensitive match against the preferred list.
-  for (const want of PREFERRED_VOICES) {
-    const found = lower.find(({ name }) => name === want.toLowerCase());
-    if (found) { cachedDragonVoice = found.v; return found.v; }
-  }
-  // Second pass: contains-match (handles "Rocco (Enhanced)" etc).
-  for (const want of PREFERRED_VOICES) {
-    const found = lower.find(({ name }) => name.includes(want.toLowerCase()));
-    if (found) { cachedDragonVoice = found.v; return found.v; }
-  }
-  cachedDragonVoice = availableVoices.find(v => v.lang && v.lang.startsWith('en'))
-    || availableVoices[0] || null;
-  return cachedDragonVoice;
-}
-
-const NATURAL_DRAGON_VOICES = ['rocko', 'rocco', 'bad news', 'cellos', 'trinoids', 'zarvox'];
-function isNaturalDragonVoice(name) {
-  if (!name) return false;
-  const n = name.toLowerCase();
-  return NATURAL_DRAGON_VOICES.some(v => n.includes(v));
-}
-
-function dragonVoiceState() {
-  if (!('speechSynthesis' in window)) return { kind: 'unavailable', name: null };
-  if (availableVoices.length === 0) return { kind: 'loading', name: null };
-  const v = pickDragonVoice();
-  if (!v) return { kind: 'unavailable', name: null };
-  if (isNaturalDragonVoice(v.name)) return { kind: 'dragon', name: v.name };
-  return { kind: 'fallback', name: v.name };
-}
-
-// Music ducking during speech: drop musicGain to ~25% of its target while
-// the dragon speaks, restore when done.
-let speakingDuckId = null;
-function duckMusic(down) {
-  if (!musicGain || !audioCtx) return;
-  if (speakingDuckId) { clearTimeout(speakingDuckId); speakingDuckId = null; }
-  const target = down ? targetMusicVolume * 0.25 : targetMusicVolume;
-  musicGain.gain.cancelScheduledValues(audioCtx.currentTime);
-  musicGain.gain.linearRampToValueAtTime(target, audioCtx.currentTime + (down ? 0.18 : 0.4));
-}
-
-function speakAloudForced(line) {
-  if (!line || !('speechSynthesis' in window)) return;
-  try {
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(String(line));
-    const v = pickDragonVoice();
-    if (v) u.voice = v;
-    // The novelty voices (Bad News, Cellos, Trinoids, Zarvox, Organ) are
-    // character voices with fixed cadence; iOS Safari silently fails to
-    // render them when you push pitch outside ~0.8–1.2. Leave those at
-    // defaults. Only apply the dragon-effect to realistic voices.
-    if (v && !isNaturalDragonVoice(v.name)) {
-      u.pitch = 0.7;
-      u.rate = 0.82;
-    }
-    u.volume = 1.0;
-    u.onstart = () => duckMusic(true);
-    u.onend = () => { duckMusic(false); };
-    u.onerror = () => { duckMusic(false); };
-    speechSynthesis.speak(u);
-  } catch (e) { console.warn('TTS failed', e); }
-}
-
-function speakLineAloud(line) {
-  if (state.settings.dragonVoice !== 'on') return;
-  speakAloudForced(line);
-}
-
-function updateDragonVoiceStatus() {
-  const el = document.getElementById('dragonVoiceStatus');
-  if (!el) return;
-  const s = dragonVoiceState();
-  const count = availableVoices.length;
-  if (s.kind === 'unavailable') el.textContent = 'Speech not available on this device.';
-  else if (s.kind === 'loading') el.textContent = 'Loading voice list…';
-  else if (s.kind === 'dragon') el.textContent = `Speaking as: ${s.name}. The dragon's true voice. (${count} voices total)`;
-  else el.textContent = `Speaking as: ${s.name}. Install Rocko or Rocco for the deeper voice — instructions below. (${count} voices total)`;
 }
 
 function tieredLine(type, amount, catName) {
@@ -2617,15 +2435,6 @@ function armAmbient() {
   if (ambientArmed) return;
   ambientArmed = true;
   playAmbient();
-  // Unlock speechSynthesis at the same time so the first programmatic
-  // speak() later in the session isn't blocked by iOS's gesture rule.
-  if ('speechSynthesis' in window) {
-    try {
-      const u = new SpeechSynthesisUtterance('');
-      u.volume = 0;
-      speechSynthesis.speak(u);
-    } catch {}
-  }
   document.removeEventListener('pointerdown', armAmbient);
   document.removeEventListener('keydown', armAmbient);
   document.removeEventListener('touchstart', armAmbient);
@@ -2968,9 +2777,6 @@ function openSettings(openerEl) {
   document.getElementById('settingMusic').value = state.settings.music;
   document.getElementById('settingSfx').value = state.settings.soundEffects;
   document.getElementById('settingDragonName').value = state.dragonName || '';
-  document.getElementById('settingDragonVoice').value = state.settings.dragonVoice;
-  populateVoicePicker();
-  updateDragonVoiceStatus();
   const volPct = Math.round((state.settings.musicVolume ?? 0.6) * 100);
   document.getElementById('settingMusicVolume').value = volPct;
   document.getElementById('musicVolumeReadout').textContent = `${volPct}%`;
@@ -2991,67 +2797,6 @@ document.getElementById('settingDragonName').addEventListener('input', (e) => {
   saveState();
   render();
   checkAchievements();
-});
-
-document.getElementById('settingDragonVoice').addEventListener('change', (e) => {
-  state.settings.dragonVoice = e.target.value;
-  saveState();
-  if (e.target.value === 'on') {
-    // Refresh the voice list (iOS often populates after first use) and
-    // play a preview so the user hears what they just turned on.
-    refreshVoices();
-    speakAloudForced('I have a voice now. Bring me gold.');
-  } else {
-    if ('speechSynthesis' in window) { try { speechSynthesis.cancel(); } catch {} }
-    duckMusic(false);
-  }
-});
-
-function populateVoicePicker() {
-  const sel = document.getElementById('settingVoiceName');
-  if (!sel) return;
-  const current = state.settings.preferredVoiceName || '';
-  const english = availableVoices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
-  const list = english.length ? english : availableVoices;
-  // Preserve the leading "Auto" option, rebuild the rest.
-  sel.innerHTML = '<option value="">Auto (recommend Bad News)</option>';
-  [...list].sort((a, b) => a.name.localeCompare(b.name)).forEach(v => {
-    const opt = document.createElement('option');
-    opt.value = v.name;
-    opt.textContent = `${v.name} (${v.lang})`;
-    sel.appendChild(opt);
-  });
-  sel.value = current;
-}
-
-document.getElementById('settingVoiceName').addEventListener('change', (e) => {
-  state.settings.preferredVoiceName = e.target.value || '';
-  cachedDragonVoice = null;
-  saveState();
-  updateDragonVoiceStatus();
-  speakAloudForced('Hear me now.');
-});
-
-document.getElementById('btnTestVoice').addEventListener('click', () => {
-  refreshVoices();
-  populateVoicePicker();
-  speakAloudForced('The dragon stirs. Bring me gold, or the Innkeeper will be punished.');
-});
-
-document.getElementById('btnListVoices').addEventListener('click', () => {
-  refreshVoices();
-  if (!('speechSynthesis' in window) || availableVoices.length === 0) {
-    alert('No voices reported yet. iOS sometimes needs a moment after first use — try again, or toggle the voice setting once.');
-    return;
-  }
-  const english = availableVoices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
-  const list = (english.length ? english : availableVoices)
-    .map(v => `${v.name} (${v.lang})`).sort().join('\n');
-  const chosen = pickDragonVoice();
-  alert(
-    `Chosen for dragon: ${chosen ? chosen.name + ' (' + chosen.lang + ')' : '(none)'}\n\n` +
-    `${english.length ? 'English voices' : 'All voices'} on this device:\n\n` + list
-  );
 });
 
 document.getElementById('settingVerbosity').addEventListener('change', (e) => {
