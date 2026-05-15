@@ -1050,17 +1050,18 @@ user-select: none;
     <p class="about-text" id="dragonVoiceStatus" style="margin-top:8px;font-size:0.84rem;color:var(--bone-dim);"></p>
     <div class="form-actions" style="margin-top:8px;">
       <button type="button" class="btn" id="btnTestVoice">Test voice</button>
+      <button type="button" class="btn" id="btnListVoices">List voices</button>
     </div>
     <details class="voice-help" style="margin-top:14px;">
-      <summary><span>How to install Rocko</span><span class="summary-icon" aria-hidden="true">▾</span></summary>
+      <summary><span>How to install Rocko / Rocco</span><span class="summary-icon" aria-hidden="true">▾</span></summary>
       <div class="setting-group" style="padding-top:8px;">
         <p class="about-text">
-          Rocko is a deep, gravelly novelty voice — far more dragon than human. To install on iPhone:
+          Apple ships two dragon-friendly voices: the classic <strong>Rocko</strong> (gravelly monster) and the newer <strong>Rocco</strong> (deep human). Either will do. To install on iPhone:
         </p>
         <ol class="install-steps">
           <li>iOS Settings → <strong>Accessibility</strong></li>
           <li><strong>Spoken Content</strong> → <strong>Voices</strong> → <strong>English</strong></li>
-          <li>Tap <strong>Rocko</strong> to download (~5 MB)</li>
+          <li>Tap <strong>Rocko</strong> or <strong>Rocco</strong> to download (~5 MB)</li>
           <li>Return here. The dragon will know.</li>
         </ol>
       </div>
@@ -1993,7 +1994,12 @@ function speakLine(line) {
 // ---------- Web Speech (out-loud dragon voice) ----------
 let availableVoices = [];
 let cachedDragonVoice = null;
-const PREFERRED_VOICES = ['Rocko', 'Bad News', 'Cellos', 'Daniel', 'Arthur', 'Aaron'];
+const PREFERRED_VOICES = [
+  // Novelty / monster voices — best fit for a dragon.
+  'Rocko', 'Rocco', 'Bad News', 'Cellos', 'Bahh', 'Zarvox', 'Trinoids',
+  // Realistic deep English voices — graceful fallback.
+  'Daniel', 'Arthur', 'Aaron', 'Eddy', 'Reed', 'Albert'
+];
 
 function refreshVoices() {
   if (!('speechSynthesis' in window)) return;
@@ -2009,17 +2015,25 @@ if ('speechSynthesis' in window) {
 
 function pickDragonVoice() {
   if (cachedDragonVoice) return cachedDragonVoice;
-  for (const name of PREFERRED_VOICES) {
-    const v = availableVoices.find(v => v.name === name);
-    if (v) { cachedDragonVoice = v; return v; }
+  const lower = availableVoices.map(v => ({ v, name: (v.name || '').toLowerCase() }));
+  // First pass: exact case-insensitive match.
+  for (const want of PREFERRED_VOICES) {
+    const found = lower.find(({ name }) => name === want.toLowerCase());
+    if (found) { cachedDragonVoice = found.v; return found.v; }
+  }
+  // Second pass: contains-match (handles "Rocco (Enhanced)" etc).
+  for (const want of PREFERRED_VOICES) {
+    const found = lower.find(({ name }) => name.includes(want.toLowerCase()));
+    if (found) { cachedDragonVoice = found.v; return found.v; }
   }
   cachedDragonVoice = availableVoices.find(v => v.lang && v.lang.startsWith('en'))
     || availableVoices[0] || null;
   return cachedDragonVoice;
 }
 
-function hasRocko() {
-  return availableVoices.some(v => v.name === 'Rocko');
+function hasDragonVoice() {
+  const v = pickDragonVoice();
+  return v && /rocc?o/i.test(v.name);
 }
 
 function dragonVoiceState() {
@@ -2027,7 +2041,7 @@ function dragonVoiceState() {
   if (availableVoices.length === 0) return { kind: 'loading', name: null };
   const v = pickDragonVoice();
   if (!v) return { kind: 'unavailable', name: null };
-  if (v.name === 'Rocko') return { kind: 'rocko', name: 'Rocko' };
+  if (/rocc?o/i.test(v.name)) return { kind: 'dragon', name: v.name };
   return { kind: 'fallback', name: v.name };
 }
 
@@ -2050,8 +2064,10 @@ function speakAloudForced(line) {
     const v = pickDragonVoice();
     if (v) u.voice = v;
     u.pitch = 0.5;
-    u.rate = (v && v.name === 'Rocko') ? 0.88 : 0.78;
-    u.volume = Math.max(0, Math.min(1, state.settings.musicVolume ?? 0.6));
+    u.rate = (v && /rocc?o/i.test(v.name)) ? 0.88 : 0.78;
+    // Independent of music volume — otherwise muting the music silences
+    // the voice too. The user's hardware volume still applies.
+    u.volume = 1.0;
     u.onstart = () => duckMusic(true);
     u.onend = () => { duckMusic(false); };
     u.onerror = () => { duckMusic(false); };
@@ -2068,10 +2084,11 @@ function updateDragonVoiceStatus() {
   const el = document.getElementById('dragonVoiceStatus');
   if (!el) return;
   const s = dragonVoiceState();
+  const count = availableVoices.length;
   if (s.kind === 'unavailable') el.textContent = 'Speech not available on this device.';
   else if (s.kind === 'loading') el.textContent = 'Loading voice list…';
-  else if (s.kind === 'rocko') el.textContent = 'Speaking as: Rocko. The dragon\'s true voice.';
-  else el.textContent = `Speaking as: ${s.name}. Install Rocko for the deeper voice — instructions below.`;
+  else if (s.kind === 'dragon') el.textContent = `Speaking as: ${s.name}. The dragon's true voice. (${count} voices total)`;
+  else el.textContent = `Speaking as: ${s.name}. Install Rocko or Rocco for the deeper voice — instructions below. (${count} voices total)`;
 }
 
 function tieredLine(type, amount, catName) {
@@ -2966,7 +2983,23 @@ document.getElementById('settingDragonVoice').addEventListener('change', (e) => 
 
 document.getElementById('btnTestVoice').addEventListener('click', () => {
   refreshVoices();
-  speakAloudForced('The dragon stirs. Bring me gold, or the {cat} will be punished.'.replace('{cat}', 'Innkeeper'));
+  speakAloudForced('The dragon stirs. Bring me gold, or the Innkeeper will be punished.');
+});
+
+document.getElementById('btnListVoices').addEventListener('click', () => {
+  refreshVoices();
+  if (!('speechSynthesis' in window) || availableVoices.length === 0) {
+    alert('No voices reported yet. iOS sometimes needs a moment after first use — try again, or toggle the voice setting once.');
+    return;
+  }
+  const english = availableVoices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+  const list = (english.length ? english : availableVoices)
+    .map(v => `${v.name} (${v.lang})`).sort().join('\n');
+  const chosen = pickDragonVoice();
+  alert(
+    `Chosen for dragon: ${chosen ? chosen.name + ' (' + chosen.lang + ')' : '(none)'}\n\n` +
+    `${english.length ? 'English voices' : 'All voices'} on this device:\n\n` + list
+  );
 });
 
 document.getElementById('settingVerbosity').addEventListener('change', (e) => {
