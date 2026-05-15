@@ -3,7 +3,7 @@
 // PWAs on iOS keep working when Safari ITP would otherwise dump caches.
 //
 // Bump CACHE_VERSION whenever any precached file changes.
-const CACHE_VERSION = 'hoard-v18';
+const CACHE_VERSION = 'hoard-v19';
 
 const PRECACHE = [
   './',
@@ -32,18 +32,12 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    // Drop every cache that isn't ours so stale files can't leak in.
     const keys = await caches.keys();
     await Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)));
     await self.clients.claim();
-    // Force every controlled tab (PWA included) to load the new HTML.
-    // Without this, the page that triggered the SW update keeps running
-    // old code until the user manually refreshes.
-    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const client of clients) {
-      try { client.navigate(client.url); }
-      catch { try { client.postMessage({ type: 'sw-updated' }); } catch {} }
-    }
+    // controllerchange on the page will trigger a reload — don't also
+    // call client.navigate from here, that races with the page's own JS
+    // and can interrupt event-listener registration mid-script.
   })());
 });
 
