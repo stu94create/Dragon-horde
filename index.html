@@ -2084,10 +2084,14 @@ function speakAloudForced(line) {
     const u = new SpeechSynthesisUtterance(String(line));
     const v = pickDragonVoice();
     if (v) u.voice = v;
-    u.pitch = 0.5;
-    u.rate = isNaturalDragonVoice(v && v.name) ? 0.88 : 0.78;
-    // Independent of music volume — otherwise muting the music silences
-    // the voice too. The user's hardware volume still applies.
+    // The novelty voices (Bad News, Cellos, Trinoids, Zarvox, Organ) are
+    // character voices with fixed cadence; iOS Safari silently fails to
+    // render them when you push pitch outside ~0.8–1.2. Leave those at
+    // defaults. Only apply the dragon-effect to realistic voices.
+    if (v && !isNaturalDragonVoice(v.name)) {
+      u.pitch = 0.7;
+      u.rate = 0.82;
+    }
     u.volume = 1.0;
     u.onstart = () => duckMusic(true);
     u.onend = () => { duckMusic(false); };
