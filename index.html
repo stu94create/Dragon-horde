@@ -3168,22 +3168,20 @@ document.addEventListener('keydown', (e) => {
 
 // ---------- PWA / storage durability ----------
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW register failed', e));
-  });
-  // When a new SW activates it tries to navigate this tab. In contexts
-  // where that's blocked it falls back to posting 'sw-updated' instead —
-  // reload ourselves on that signal.
-  navigator.serviceWorker.addEventListener('message', (e) => {
-    if (e.data && e.data.type === 'sw-updated') location.reload();
-  });
-  // A controllerchange means a new SW has taken over. Reload so the page
-  // is served by the new SW immediately.
+  // Remember whether this page started already controlled. Reloading on
+  // controllerchange only makes sense for an UPGRADE — on first install
+  // there was no previous controller and the page is already running
+  // the latest code it was served, so reloading would just churn.
+  const startedControlled = !!navigator.serviceWorker.controller;
   let reloadedForUpdate = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!startedControlled) return;
     if (reloadedForUpdate) return;
     reloadedForUpdate = true;
     location.reload();
+  });
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW register failed', e));
   });
 }
 
